@@ -6,6 +6,8 @@
 #include "Engine/Engine.h"
 #include "UObject/ConstructorHelpers.h"
 #include "DrawDebugHelpers.h"
+#include "Common/PRCommonEnum.h"
+#include "Common/PRCommonStruct.h"
 
 /** 로그 카테고리를 정의합니다. */
 DECLARE_LOG_CATEGORY_EXTERN(ProjectReplica, Log, All);
@@ -51,7 +53,7 @@ DECLARE_LOG_CATEGORY_EXTERN(ProjectReplica, Log, All);
 #define PR_LOG_SCREEN_T(Time, Format, ...) GEngine->AssOnScreenDebugMessage(-1, Time, FColor::Red, FString::Printf(TEXT(Format), ##__VA_ARGS__))
 
 /**
- * PR_LOG에서 Verbosity를 인자에서 뺀 매크로입니다.
+ * PR_LOG에서 Verbosity를 뺀 매크로입니다.
  * ex) PR_LOG_WARNING("Warning");
  *     PR_LOG_ERROR("Error");
  */
@@ -63,3 +65,4 @@ DECLARE_LOG_CATEGORY_EXTERN(ProjectReplica, Log, All);
  * ex) PR_CHECK(조건문);
  */
 #define PR_CHECK(Expr, ...) {if(!(Expr)) {PR_LOG(Error, TEXT("ASSERTION: %s")), TEXT("'"#Expr"'")); return __VA_ARGS__;}}
+

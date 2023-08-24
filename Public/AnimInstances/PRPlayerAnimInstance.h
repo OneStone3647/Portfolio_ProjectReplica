@@ -16,33 +16,17 @@ class PROJECTREPLICA_API UPRPlayerAnimInstance : public UPRBaseAnimInstance
 
 public:
 	UPRPlayerAnimInstance();
-
+	
 protected:
-	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
+	/** 캐릭터의 MovementInfo를 최신화하는 함수입니다. */
+	virtual void UpdateMovementInfo() override;
 
-#pragma region CharacterReference
-protected:
-	/** 이 AnimInstance를 사용하는 Pawn을 PRPlayerCharacter 클래스로 캐스팅한 변수입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "CharacterReference")
-	class APRPlayerCharacter* PRPlayerOwner;
-#pragma endregion 
+private:
+	/** 캐릭터의 InputComponent의 MoveForward 값입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "MovementInfo", meta = (AllowPrivateAccess = "true"))
+	float MoveForward;
 
-#pragma region MovementInfo
-protected:
-	/** 플레이어 캐릭터의 움직임 정보를 업데이트하는 함수입니다. */
-	void UpdatePlayerMovementInfo();
-
-protected:
-	/** DoubleJump인지 나타내는 변수입니다. */
-	UPROPERTY(BlueprintReadWrite, Category = "CharacterInfo")
-	bool bIsDoubleJump;
-
-	/** Target을 LockOn 중인지 나타내는 변수입니다. */
-	UPROPERTY(BlueprintReadWrite, Category = "CharacterInfo")
-	bool bIsLockOnTarget;
-
-	/** 공중에서 머무는(에어리얼) 상태였는지 나타내는 변수입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "CharacterInfo")
-	bool bWasAerial;
-#pragma endregion
+	/** 캐릭터의 InputComponent의 MoveRight 값입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "MovementInfo", meta = (AllowPrivateAccess = "true"))
+	float MoveRight;
 };

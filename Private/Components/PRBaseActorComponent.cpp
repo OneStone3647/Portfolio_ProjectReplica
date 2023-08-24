@@ -3,6 +3,7 @@
 
 #include "Components/PRBaseActorComponent.h"
 #include "Characters/PRBaseCharacter.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 UPRBaseActorComponent::UPRBaseActorComponent()
 {
@@ -12,22 +13,24 @@ UPRBaseActorComponent::UPRBaseActorComponent()
 	PROwner = nullptr;
 }
 
-
 void UPRBaseActorComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	InitializePROwner();
 }
 
-#pragma region PRCharacterReference
 void UPRBaseActorComponent::InitializePROwner()
 {
-	APRBaseCharacter* PRBaseCharacter = Cast<APRBaseCharacter>(GetOwner());
-	if(PRBaseCharacter)
+	APRBaseCharacter* NewPROwner = Cast<APRBaseCharacter>(GetOwner());
+	if(IsValid(NewPROwner) == true)
 	{
-		PROwner = PRBaseCharacter;
+		PROwner = NewPROwner;
 	}
 }
-#pragma endregion 
+
+APRBaseCharacter* UPRBaseActorComponent::GetPROwner() const
+{
+	return PROwner;
+}
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ProjectReplica.h"
+#include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "ProjectReplicaCharacter.generated.h"
 
@@ -10,9 +10,6 @@ UCLASS(config=Game)
 class AProjectReplicaCharacter : public ACharacter
 {
 	GENERATED_BODY()
-
-protected:
-	virtual void BeginPlay() override;
 
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))

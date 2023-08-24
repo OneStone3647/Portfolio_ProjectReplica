@@ -3,13 +3,12 @@
 
 #include "AnimNotifies/ANS_PRNextAttack.h"
 #include "Characters/PRBaseCharacter.h"
+#include "Characters/PRPlayerCharacter_Kyle.h"
 #include "Components/PRStateSystemComponent.h"
 #include "Components/PRWeaponSystemComponent.h"
-#include "Enums/Enum_PRWeaponEquipPosition.h"
-#include "Weapons/PRBaseWaepon.h"
 
-UANS_PRNextAttack::UANS_PRNextAttack(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+UANS_PRNextAttack::UANS_PRNextAttack()
+	: Super()
 {
 	bIsNativeBranchingPoint = true;
 }
@@ -17,15 +16,14 @@ UANS_PRNextAttack::UANS_PRNextAttack(const FObjectInitializer& ObjectInitializer
 void UANS_PRNextAttack::BranchingPointNotifyBegin(FBranchingPointNotifyPayload& BranchingPointPayload)
 {
 	Super::BranchingPointNotifyBegin(BranchingPointPayload);
-
-	if(USkeletalMeshComponent* MeshComp = BranchingPointPayload.SkelMeshComponent)
+	
+	USkeletalMeshComponent* MeshComp = BranchingPointPayload.SkelMeshComponent;
+	if(MeshComp != nullptr)
 	{
 		APRBaseCharacter* PROwner = Cast<APRBaseCharacter>(MeshComp->GetOwner());
 		if(IsValid(PROwner) == true)
 		{
-			PROwner->GetStateSystem()->SetOnAttack(false);
-			PROwner->GetStateSystem()->SetOnDodge(false);
-			PROwner->GetWeaponSystem()->SetCanSwapWeapon(true);
+			PROwner->GetStateSystem()->SetActionable(EPRAction::Action_Attack, true);
 		}
 	}
 }
@@ -33,14 +31,21 @@ void UANS_PRNextAttack::BranchingPointNotifyBegin(FBranchingPointNotifyPayload& 
 void UANS_PRNextAttack::BranchingPointNotifyEnd(FBranchingPointNotifyPayload& BranchingPointPayload)
 {
 	Super::BranchingPointNotifyEnd(BranchingPointPayload);
-
-	if(USkeletalMeshComponent* MeshComp = BranchingPointPayload.SkelMeshComponent)
+	
+	USkeletalMeshComponent* MeshComp = BranchingPointPayload.SkelMeshComponent;
+	if(MeshComp != nullptr)
 	{
 		APRBaseCharacter* PROwner = Cast<APRBaseCharacter>(MeshComp->GetOwner());
-		if(IsValid(PROwner) == true && PROwner->GetStateSystem()->IsOnAttack() == false)
+		if(IsValid(PROwner) == true && PROwner->GetStateSystem()->IsActionable(EPRAction::Action_Attack) == true)
 		{
-			PROwner->GetWeaponSystem()->GetEquipWeapon(EPRWeaponEquipPosition::WeaponEquipPosition_Main)->InitializeWeaponPRAnimMontageIndex();
-			PROwner->GetStateSystem()->SetCanMove(true);
+			// PROwner->GetWeaponSystem()->SetEquippedWeaponGroupAttackPRAnimMontageIndex(0);
+			PROwner->GetStateSystem()->SetActionable(EPRAction::Action_Move, true);
+
+			APRPlayerCharacter* PRPlayerOwner = Cast<APRPlayerCharacter>(PROwner);
+			if(IsValid(PRPlayerOwner) == true)
+			{
+				PRPlayerOwner->InitializePlayNormalAttackIndex();
+			}
 		}
 	}
 }

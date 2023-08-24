@@ -2,210 +2,133 @@
 
 
 #include "Components/PRWeaponSystemComponent.h"
+
 #include "Characters/PRBaseCharacter.h"
-#include "Components/PRStateSystemComponent.h"
-#include "Weapons/PRBaseWaepon.h"
-#include "Enums/Enum_PRWeaponEquipPosition.h"
+#include "Weapons/PRBaseWeapon.h"
+#include "Weapons/PRDualMeleeWeapons.h"
 
 UPRWeaponSystemComponent::UPRWeaponSystemComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
-	
-	// PRWeaponSystem
-	WeaponIndex = 0;
-	MainWeaponEquipSocketName = TEXT("hand_r_weapon");
-	SubWeaponEquipSocketName = TEXT("hand_l_weapon");
-	bCanSwapWeapon = true;
+	WeaponInventory.Empty();
+	EquippedWeaponIndex = 0;
+	WeaponsToSpawn.Empty();
+	WeaponDataTable = nullptr;
 }
 
-#pragma region WeaponInventory
-void UPRWeaponSystemComponent::SpawnWeaponAndAddToInventory(TSubclassOf<APRBaseWaepon> NewWeapon)
+void UPRWeaponSystemComponent::InitializeWeaponInventory()
 {
-	int32 NewWeaponIndex = 0;
-	if(MainWeaponInventory.Num() != 0)
+	WeaponInventory.Empty();
+
+	// if(WeaponDataTable != nullptr)
+	// {
+	// 	TArray<FName> RowNames = WeaponDataTable->GetRowNames();
+	//
+	// 	for(const auto& RowName : RowNames)
+	// 	{
+	// 		TSubclassOf<APRBaseWeapon> NewWeaponClass = *WeaponDataTable->FindRow<TSubclassOf<APRBaseWeapon>>(RowName, FString(""));
+	// 		APRBaseWeapon* NewWeapon = SpawnWeaponInWorld(NewWeaponClass);
+	// 		if(IsValid(NewWeapon) == true)
+	// 		{
+	// 			NewWeapon->SetActivate(false);
+	// 			WeaponInventory.Emplace(NewWeapon);
+	// 		}
+	// 	}
+	// }
+
+	if(WeaponsToSpawn.Num() != 0)
 	{
-		TArray<int32> Keys;
-		MainWeaponInventory.GetKeys(Keys);
-
-		NewWeaponIndex = Keys.Last() + 1;
-	}
-
-	APRBaseWaepon* NewSpawnMainWeapon = SpawnWeaponInWorld(NewWeapon);
-	if(IsValid(NewSpawnMainWeapon) == true)
-	{
-		NewSpawnMainWeapon->SetPROnwerAndOwnerType(PROwner);
-		MainWeaponInventory.Add(NewWeaponIndex, NewSpawnMainWeapon);
-
-		if(NewSpawnMainWeapon->IsEqualWeaponEquipType(EPRWeaponEquipType::WeaponEquipType_Dual) == true)
+		for(const auto& NewWeaponClass : WeaponsToSpawn)
 		{
-			APRBaseWaepon* NewSpawnSubWeapon = SpawnWeaponInWorld(NewWeapon);
-			if(IsValid(NewSpawnSubWeapon) == true)
+			APRBaseWeapon* NewWeapon = SpawnWeaponInWorld(NewWeaponClass);
+			if(IsValid(NewWeapon) == true)
 			{
-				NewSpawnSubWeapon->SetPROnwerAndOwnerType(PROwner);
-				SubWeaponInventory.Add(NewWeaponIndex, NewSpawnSubWeapon);
+				NewWeapon->InitializeWeapon(GetPROwner());
+				NewWeapon->SetActivate(false);
+				WeaponInventory.Emplace(NewWeapon);
 			}
 		}
 	}
 }
 
-void UPRWeaponSystemComponent::EquipWeapons(int32 NewWeaponIndex)
+APRBaseWeapon* UPRWeaponSystemComponent::GetWeapon(int32 NewWeaponInventoryIndex) const
 {
-	if(MainWeaponInventory.Find(NewWeaponIndex) != nullptr)
+	if(WeaponInventory.IsValidIndex(NewWeaponInventoryIndex) == true)
 	{
-		MainWeapon = *MainWeaponInventory.Find(NewWeaponIndex);
-	}
-	else
-	{
-		MainWeapon = nullptr;
+		return WeaponInventory[NewWeaponInventoryIndex];
 	}
 
-	if(SubWeaponInventory.Find(NewWeaponIndex) != nullptr)
-	{
-		SubWeapon = *SubWeaponInventory.Find(NewWeaponIndex);
-	}
-	else
-	{
-		SubWeapon = nullptr;
-	}
-}
-#pragma endregion 
-
-void UPRWeaponSystemComponent::DrawWeapons()
-{
-	MainWeapon->InitializeWeaponPRAnimMontageIndex();
-	
-	if(MainWeapon)
-	{
-		DrawWeapon(MainWeapon, MainWeaponEquipSocketName, true);
-	}
-
-	if(SubWeapon)
-	{
-		DrawWeapon(SubWeapon, SubWeaponEquipSocketName, true);
-	}
+	return nullptr;
 }
 
-void UPRWeaponSystemComponent::SheathWeapons(bool bExecuteEffect)
+void UPRWeaponSystemComponent::DrawWeapon(int32 DrawWeaponIndex)
 {
-	MainWeapon->InitializeWeaponPRAnimMontageIndex();
-
-	if(MainWeapon)
+	// WeaponInventory에 Index 값에 해당하는 무기가 존재하는지 확인합니다.
+	if(WeaponInventory.IsValidIndex(DrawWeaponIndex) == true)
 	{
-		SheathWeapon(MainWeapon, bExecuteEffect);
-	}
-
-	if(SubWeapon)
-	{
-		SheathWeapon(SubWeapon, bExecuteEffect);
-	}
-}
-
-bool UPRWeaponSystemComponent::IsDrawWeapons() const
-{
-	bool MainWeaponCheck = IsValid(MainWeapon) == true && MainWeapon->IsWeaponActive() == true;
-	bool SubWeaponCheck = IsValid(SubWeapon) == true && SubWeapon->IsWeaponActive() == true;
-
-	return MainWeaponCheck || SubWeaponCheck;
-}
-
-void UPRWeaponSystemComponent::SwapWeapons()
-{
-	int32 LastWeaponIndex = 0;
-	if(MainWeaponInventory.Num() != 0)
-	{
-		TArray<int32> Keys;
-		MainWeaponInventory.GetKeys(Keys);
-
-		LastWeaponIndex = Keys.Last();
-	}
-
-	// 마지막 Index일 경우 0(처음)으로 설정합니다.
-	if(WeaponIndex == LastWeaponIndex)
-	{
-		WeaponIndex = 0;
-	}
-	else
-	{
-		WeaponIndex++;
-	}
-
-	if(IsDrawWeapons() == true)
-	{
-		SheathWeapons(true);
-	}
-
-	MainWeapon = nullptr;
-	SubWeapon = nullptr;
-
-	EquipWeapons(WeaponIndex);
-}
-
-bool UPRWeaponSystemComponent::IsCanSwapWeapon()
-{
-	return bCanSwapWeapon
-			&& !(PROwner->GetStateSystem()->IsDead() == true
-				|| PROwner->GetStateSystem()->IsHit() == true);
-}
-
-APRBaseWaepon* UPRWeaponSystemComponent::GetEquipWeapon(EPRWeaponEquipPosition WeaponEquipPosition) const
-{
-	switch(WeaponEquipPosition)
-	{
-	case EPRWeaponEquipPosition::WeaponEquipPosition_Main:
-		return MainWeapon;
-	case EPRWeaponEquipPosition::WeaponEquipPosition_Sub:
-		return SubWeapon;
-	default:
-		return nullptr;			
-	}
-}
-
-bool UPRWeaponSystemComponent::IsEquipWeapon(EPRWeaponEquipPosition WeaponEquipPosition) const
-{
-	switch(WeaponEquipPosition)
-	{
-	case EPRWeaponEquipPosition::WeaponEquipPosition_Main:
-		if(IsValid(MainWeapon) == true)
+		if(EquippedWeaponIndex != DrawWeaponIndex && WeaponInventory.IsValidIndex(EquippedWeaponIndex) == true)
 		{
-			return true;
+			WeaponInventory[EquippedWeaponIndex]->SetActivate(false);
 		}
-		return false;
-	case EPRWeaponEquipPosition::WeaponEquipPosition_Sub:
-		if(IsValid(SubWeapon) == true)
+
+		EquippedWeaponIndex = DrawWeaponIndex;
+		
+		APRBaseWeapon* NewDrawWeapon = WeaponInventory[EquippedWeaponIndex];
+		
+		// 무기가 비활성화되었으면 활성화합니다.
+		if(NewDrawWeapon->IsActivate() == false)
 		{
-			return true;
+			NewDrawWeapon->SetActivate(true);
 		}
-		return false;
-	default:
-		return false;
+
+		NewDrawWeapon->Draw();
 	}
 }
 
-
-APRBaseWaepon* UPRWeaponSystemComponent::SpawnWeaponInWorld(TSubclassOf<APRBaseWaepon> NewWeapon)
+void UPRWeaponSystemComponent::SheathWeapon(int32 SheathWeaponIndex)
 {
-	return GetWorld()->SpawnActor<APRBaseWaepon>(NewWeapon);
-}
-
-void UPRWeaponSystemComponent::DrawWeapon(APRBaseWaepon* Weapon, FName EquipSocketName, bool bExecuteEffect)
-{
-	if(IsValid(Weapon) == true)
+	// WeaponInventory에 Index 값에 해당하는 무기가 존재하는지 확인합니다.
+	if(WeaponInventory.IsValidIndex(SheathWeaponIndex) == true)
 	{
-		Weapon->AttachToComponent(PROwner->GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), EquipSocketName);
-		Weapon->SetWeaponActive(true, bExecuteEffect);
+		if(EquippedWeaponIndex != SheathWeaponIndex && WeaponInventory.IsValidIndex(EquippedWeaponIndex) == true)
+		{
+			WeaponInventory[EquippedWeaponIndex]->SetActivate(false);
+		}
+
+		EquippedWeaponIndex = SheathWeaponIndex;
+		
+		APRBaseWeapon* NewSheathWeapon = WeaponInventory[EquippedWeaponIndex];
+		
+		// 무기가 비활성화되었으면 활성화합니다.
+		if(NewSheathWeapon->IsActivate() == false)
+		{
+			NewSheathWeapon->SetActivate(true);
+		}
+
+		NewSheathWeapon->Sheath();
 	}
 }
 
-void UPRWeaponSystemComponent::SheathWeapon(APRBaseWaepon* Weapon, bool bExecuteEffect)
+APRBaseWeapon* UPRWeaponSystemComponent::GetEquippedWeapon() const
 {
-	if(IsValid(Weapon) == true)
+	if(WeaponInventory.IsValidIndex(EquippedWeaponIndex) == true)
 	{
-		Weapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-		Weapon->SetWeaponActive(false, bExecuteEffect);
+		return WeaponInventory[EquippedWeaponIndex];
 	}
+
+	return nullptr;
 }
 
-void UPRWeaponSystemComponent::SetCanSwapWeapon(bool bFlag)
+APRBaseWeapon* UPRWeaponSystemComponent::SpawnWeaponInWorld(TSubclassOf<APRBaseWeapon> NewPRWeaponClass)
 {
-	bCanSwapWeapon = bFlag;
+	return GetWorld()->SpawnActor<APRBaseWeapon>(NewPRWeaponClass);
+}
+
+TArray<APRBaseWeapon*> UPRWeaponSystemComponent::GetWeaponInventory() const
+{
+	return WeaponInventory;
+}
+
+int32 UPRWeaponSystemComponent::GetEquippedWeaponIndex() const
+{
+	return EquippedWeaponIndex;
 }

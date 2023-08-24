@@ -3,36 +3,21 @@
 
 #include "AnimInstances/PRPlayerAnimInstance.h"
 #include "Characters/PRPlayerCharacter.h"
-#include "Components/PRMovementSystemComponent.h"
-#include "Components/PRTargetingSystemComponent.h"
 
 UPRPlayerAnimInstance::UPRPlayerAnimInstance()
 {
-	// CharacterReference
-	PRPlayerOwner = nullptr;
-	
-	// CharacterInfo
-	bIsDoubleJump = false;
-	bIsLockOnTarget = false;
-	bWasAerial = false;
+	MoveForward = 0.0f;
+	MoveRight = 0.0f;
 }
 
-void UPRPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
+void UPRPlayerAnimInstance::UpdateMovementInfo()
 {
-	Super::NativeUpdateAnimation(DeltaSeconds);
-	
-	APRPlayerCharacter* NewPRPlayerOwner = Cast<APRPlayerCharacter>(TryGetPawnOwner());
-	if(IsValid(NewPRPlayerOwner) == true)
+	Super::UpdateMovementInfo();
+
+	APRPlayerCharacter* PRPlayerOwner = Cast<APRPlayerCharacter>(PROwner);
+	if(IsValid(PRPlayerOwner) == true)
 	{
-		PRPlayerOwner = NewPRPlayerOwner;
-
-		UpdatePlayerMovementInfo();
+		MoveForward = PRPlayerOwner->GetMoveForward();
+		MoveRight = PRPlayerOwner->GetMoveRight();
 	}
-}
-
-void UPRPlayerAnimInstance::UpdatePlayerMovementInfo()
-{
-	bIsDoubleJump = PRPlayerOwner->IsDoubleJump();
-	bIsLockOnTarget = PRPlayerOwner->GetTargetingSystem()->IsLockOnTarget();
-	bWasAerial = PRPlayerOwner->GetMovementSystem()->WasAerial();
 }

@@ -2,30 +2,31 @@
 
 
 #include "Components/PRTargetingSystemComponent.h"
-#include "Components/PRMovementSystemComponent.h"
-#include "Characters/PRPlayerCharacter.h"
+
+#include "PRPlayerController.h"
 #include "Characters/PRAICharacter.h"
-#include "Components/CapsuleComponent.h"
-#include "GameFramework/PlayerController.h"
+#include "Characters/PRPlayerCharacter.h"
+#include "Components/PRMovementSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
 UPRTargetingSystemComponent::UPRTargetingSystemComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	
+
 	// Debug
 	bDrawDebug = false;
 	DebugTargetSphereSize = 30.0f;
-	DebugTargetSphereSegment = 30.0f;
 
-	// TargetingSystem
-	bIsLockOnTarget = false;
-	Target = nullptr;
-	MaxSearchTargetableDistance = 2000.0f;
+	// LockOn
+	bActivateLockOnTarget = false;
+	LockedOnTarget = nullptr;
+	MaxSearchTargetalbeDistance = 2000.0f;
+	bActivateDynamicCameraLock = false;
+	StopDynamicCameraLockScreenRatio = 0.7f;
 	InterpSpeed = 5.0f;
 	LastTimeChangeTarget = 0.0f;
-	TimeSinceLastChangeTarget = 0.0f;
+	TimeSinceChangeTarget = 0.0f;
 	MinMouseValueToChangeTarget = 3.0f;
 	MinDelayTimeToChangeTarget = 0.3f;
 	bAnalogNeutralSinceLastSwitchTarget = false;
@@ -35,8 +36,6 @@ UPRTargetingSystemComponent::UPRTargetingSystemComponent()
 void UPRTargetingSystemComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	InitializePlayerReference();
 }
 
 void UPRTargetingSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -44,74 +43,98 @@ void UPRTargetingSystemComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	UpdateCameraLock();
-	UpdateDrawDebug();
+	
+	if(bDrawDebug)
+	{
+		UpdateDebug();
+	}
 }
 
 #pragma region Debug
-void UPRTargetingSystemComponent::UpdateDrawDebug()
+void UPRTargetingSystemComponent::UpdateDebug()
 {
-	if(bDrawDebug)
+	// 탐지하는 범위를 드로우 디버그합니다.
+	DrawDebugSphere(GetWorld(), GetPROwner()->GetActorLocation(), MaxSearchTargetalbeDistance, 12, FColor::Green);
+
+	// LockedOnTarget을 드로우 디버그합니다.
+	if(IsValid(LockedOnTarget) == true)
 	{
-		// 탐지하는 범위를 드로우 디버그합니다.
-		DrawDebugSphere(GetWorld(), PROwner->GetActorLocation(), MaxSearchTargetableDistance,
-						DebugTargetSphereSegment, FColor::Green);
-
-		// Target을 드로우 디버그합니다.
-		if(IsValid(Target) == true)
+		APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(LockedOnTarget);
+		if(TargetPRAICharacter != nullptr)
 		{
-			APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(Target);
-			if(TargetPRAICharacter)
-			{
-				DrawDebugSphere(GetWorld(), TargetPRAICharacter->GetTargetAimLocation(),
-								DebugTargetSphereSize, DebugTargetSphereSegment, FColor::Red);
-			}
-		}
-
-		// Target을 제외한 TargetableActors를 드로우 디버그합니다.
-		TArray<AActor*> TargetableActors = SearchTargetableActors();
-		TargetableActors.Remove(Target);
-		for(AActor* TargetableActor : TargetableActors)
-		{
-			APRAICharacter* TargetablePRAICharacter = Cast<APRAICharacter>(TargetableActor);
-			if(TargetablePRAICharacter)
-			{
-				DrawDebugSphere(GetWorld(), TargetablePRAICharacter->GetTargetAimLocation(),
-								DebugTargetSphereSize, DebugTargetSphereSegment, FColor::Green);
-			}
+			DrawDebugSphere(GetWorld(), TargetPRAICharacter->GetTargetAimLocation(), 30.0f, 12, FColor::Red);
 		}
 	}
+
+	// LockedOnTarget을 제외한 TargetableActors를 드로우 디버그합니다.
+	TArray<AActor*> TargetableActors = SearchTargetableActors();
+	TargetableActors.Remove(LockedOnTarget);
+	for(AActor* TargetableActor : TargetableActors)
+	{
+		APRAICharacter* TargetablePRAICharacter = Cast<APRAICharacter>(TargetableActor);
+		if(TargetablePRAICharacter != nullptr)
+		{
+			DrawDebugSphere(GetWorld(), TargetablePRAICharacter->GetTargetAimLocation(), 30.0f, 12, FColor::Green);
+		}
+	}
+
+	// // LockedOnTarget을 제외한 TargetableActors를 드로우 디버그합니다.
+	// if(!bActivateLockOnTarget)
+	// {
+	// 	TArray<AActor*> TargetableActors = SearchTargetableActors();
+	// 	TargetableActors.Remove(LockedOnTarget);
+	// 	for(AActor* TargetableActor : TargetableActors)
+	// 	{
+	// 		APRAICharacter* TargetablePRAICharacter = Cast<APRAICharacter>(TargetableActor);
+	// 		if(TargetablePRAICharacter != nullptr)
+	// 		{
+	// 			DrawDebugSphere(GetWorld(), TargetablePRAICharacter->GetTargetAimLocation(), 30.0f, 12, FColor::Green);
+	// 		}
+	// 	}
+	// }
+	//
+	// // LeftTargetableActors를 드로우 디버그합니다.
+	// TArray<AActor*> DebugLeftTargetableActors = LeftTargetableActors;
+	// DebugLeftTargetableActors.Remove(LockedOnTarget);
+	// for(AActor* TargetableActor : DebugLeftTargetableActors)
+	// {
+	// 	APRAICharacter* TargetablePRAICharacter = Cast<APRAICharacter>(TargetableActor);
+	// 	if(TargetablePRAICharacter != nullptr)
+	// 	{
+	// 		DrawDebugSphere(GetWorld(), TargetablePRAICharacter->GetTargetAimLocation(), 30.0f, 12, FColor::Yellow);
+	// 	}
+	// }
+	//
+	// // RightTargetableActors를 드로우 디버그합니다.
+	// TArray<AActor*> DebugRightTargetableActors = RightTargetableActors;
+	// DebugRightTargetableActors.Remove(LockedOnTarget);
+	// for(AActor* TargetableActor : DebugRightTargetableActors)
+	// {
+	// 	APRAICharacter* TargetablePRAICharacter = Cast<APRAICharacter>(TargetableActor);
+	// 	if(TargetablePRAICharacter != nullptr)
+	// 	{
+	// 		DrawDebugSphere(GetWorld(), TargetablePRAICharacter->GetTargetAimLocation(), 30.0f, 12, FColor::Blue);
+	// 	}
+	// }
 }
 #pragma endregion
 
-#pragma region PlayerReference
-void UPRTargetingSystemComponent::InitializePlayerReference()
+bool UPRTargetingSystemComponent::IsActivateLockOnTarget() const
 {
-	APRPlayerCharacter* NewPRPlayerOwner = Cast<APRPlayerCharacter>(PROwner);
-	if(IsValid(NewPRPlayerOwner) == true)
-	{
-		PRPlayerOwner = NewPRPlayerOwner;
-	}
-	
-	PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	PlayerCameraManager = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
-}
-#pragma endregion
-
-#pragma region TargetingSystem
-bool UPRTargetingSystemComponent::IsLockOnTarget() const
-{
-	return bIsLockOnTarget && IsValid(Target) == true;
+	return bActivateLockOnTarget && IsValid(LockedOnTarget) == true;
 }
 
-void UPRTargetingSystemComponent::ExecuteLockOnTarget()
+void UPRTargetingSystemComponent::ActivateLockOnTarget()
 {
-	SetTarget(FindTarget());
-	if(IsValid(Target) == true)
+	SetLockedOnTarget(FindTarget());
+	if(IsValid(LockedOnTarget) == true)
 	{
+		// LockedOnTarget이 존재할 경우 LockOnTarget을 향해 카메라를 고정합니다.
 		EnableCameraLock();
 	}
 	else
 	{
+		// LockedOnTarget이 존재하지 않을 경우 LockOnTarget을 취소합니다.
 		CancelLockOnTarget();
 	}
 }
@@ -119,92 +142,86 @@ void UPRTargetingSystemComponent::ExecuteLockOnTarget()
 void UPRTargetingSystemComponent::CancelLockOnTarget()
 {
 	DisableCameraLock();
-	
-	Target = nullptr;
+	LockedOnTarget = nullptr;
+	// LeftTargetableActors.Empty();
+	// RightTargetableActors.Empty();
 }
 
 void UPRTargetingSystemComponent::ChangeLockOnTargetForTurnValue(EPRInputMode InputMode, float TurnValue)
 {
-	APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(Target);
-	if(IsValid(TargetPRAICharacter) == true && TargetPRAICharacter->IsDead() == false)
+	if(bActivateLockOnTarget && IsValid(LockedOnTarget) == true)
 	{
-		TargetPRAICharacter->SelectedTarget(false);
+		APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(LockedOnTarget);
+		if(TargetPRAICharacter != nullptr)
+		{
+			TargetPRAICharacter->LockedOnTarget(false);
+		}
+
+		switch(InputMode)
+		{
+		case EPRInputMode::InputMode_Mouse:
+			ChangeLockOnTargetWithMouse(TurnValue);
+			break;
+		case EPRInputMode::InputMode_Gamepad:
+			ChangeLockOnTargetWithGamepad(TurnValue);
+			break;
+		default:
+			break;
+		}
+
+		EnableCameraLock();
 	}
-
-	switch(InputMode)
-	{
-	case EPRInputMode::InputMode_Mouse:
-		TimeSinceLastChangeTarget = GetWorld()->GetRealTimeSeconds() - LastTimeChangeTarget;
-		if(FMath::Abs(TurnValue) > MinMouseValueToChangeTarget && TimeSinceLastChangeTarget > MinDelayTimeToChangeTarget)
-		{
-			if(TurnValue < 0.0f)
-			{
-				SetTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Left));
-			}
-			else
-			{
-				SetTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Right));
-			}
-
-			LastTimeChangeTarget = GetWorld()->GetRealTimeSeconds();
-		}
-		break;
-	case EPRInputMode::InputMode_Gamepad:
-		if(FMath::Abs(TurnValue) < MinAnalogValueToChangeTarget)
-		{
-			bAnalogNeutralSinceLastSwitchTarget = true;
-		}
-
-		if(FMath::Abs(TurnValue) >= MinAnalogValueToChangeTarget && bAnalogNeutralSinceLastSwitchTarget)
-		{
-			if(TurnValue < KINDA_SMALL_NUMBER)
-			{
-				SetTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Left));
-			}
-			else if(TurnValue > KINDA_SMALL_NUMBER)
-			{
-				SetTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Right));
-			}
-
-			bAnalogNeutralSinceLastSwitchTarget = false;
-		}
-		break;
-	default:
-		break;
-	}
-
-	EnableCameraLock();
 }
 
 void UPRTargetingSystemComponent::UpdateCameraLock()
 {
-	if(bIsLockOnTarget)
+	if(bActivateLockOnTarget)
 	{
-		if(IsValid(Target) == true && PROwner->GetDistanceTo(Target) <= MaxSearchTargetableDistance)
+		if(IsValid(LockedOnTarget) == true && GetOwner()->GetDistanceTo(LockedOnTarget) <= MaxSearchTargetalbeDistance)
 		{
-			if(PROwner->GetMovementSystem()->IsEqaulGait(EPRGait::Gait_Sprinting) == true || PRPlayerOwner->IsDoubleJump() == true
-				|| PROwner->GetCapsuleComponent()->GetCollisionProfileName() == FName("GhostCharacter"))
+			APRBaseCharacter* TargetPRCharacter = Cast<APRBaseCharacter>(LockedOnTarget);
+			if(TargetPRCharacter != nullptr && TargetPRCharacter->IsDead() == false)
 			{
-				PROwner->SetRotationMode(EPRRotationMode::RotationMode_VelocityDirection);				
-			}
-			else
-			{
-				PROwner->SetRotationMode(EPRRotationMode::RotationMode_LookingDirection);
-			}
-
-			APRBaseCharacter* TargetPRCharacter = Cast<APRBaseCharacter>(Target);
-			if(IsValid(TargetPRCharacter) == true && TargetPRCharacter->IsDead() == false)
-			{
-				if(PlayerController)
-				{
-					const FRotator InterpToTarget = CalculateInterpToTarget(Target);
-					PlayerController->SetControlRotation(InterpToTarget);
+				APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+				if(PlayerController != nullptr)
+				{					
+					APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(GetOwner());
+					if(IsValid(PRPlayerCharacter) == true)
+					{
+						FVector2D TargetPositionOnScreen = FVector2D::ZeroVector;
+						bool bIsTargetOnScreen = false;
+						
+						GetScreenPositionOfActor(*LockedOnTarget,TargetPositionOnScreen, bIsTargetOnScreen);
+						
+						if(IsOnScreen(TargetPositionOnScreen, StopDynamicCameraLockScreenRatio) == false)
+						{
+							if(bActivateDynamicCameraLock)
+							{
+								const FRotator InterpToTarget = CalculateInterpToTarget(*LockedOnTarget);
+								PlayerController->SetControlRotation(InterpToTarget);
+							}
+						}
+						else
+						{
+							bActivateDynamicCameraLock = false;
+						}
+					}
 				}
 			}
 			else
 			{
+				// Target이 죽었을 경우 새로운 Target을 찾아 LockOn합니다.
 				CancelLockOnTarget();
-				ExecuteLockOnTarget();
+				ActivateLockOnTarget();
+
+				// // 새로운 Target을 찾아 지정할 때 화면에 존재하지 않으면 LockOn을 해제합니다.
+				// FVector2D TargetPositionOnScreen = FVector2D::ZeroVector;
+				// bool bIsTargetOnScreen = false;
+				// GetScreenPositionOfActor(*LockedOnTarget,TargetPositionOnScreen, bIsTargetOnScreen);
+				// if(IsOnScreen(TargetPositionOnScreen, StopDynamicCameraLockScreenRatio) == false)
+				// {
+				// 	CancelLockOnTarget();
+				// }
 			}
 		}
 		else
@@ -216,62 +233,104 @@ void UPRTargetingSystemComponent::UpdateCameraLock()
 
 void UPRTargetingSystemComponent::EnableCameraLock()
 {
-	APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(Target);
+	APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(LockedOnTarget);
 	if(IsValid(TargetPRAICharacter) == true)
 	{
-		bIsLockOnTarget = true;
-		TargetPRAICharacter->SelectedTarget(true);
-		PROwner->SetRotationMode(EPRRotationMode::RotationMode_LookingDirection);
+		bActivateLockOnTarget = true;
+		TargetPRAICharacter->LockedOnTarget(true);
 	}
 }
 
 void UPRTargetingSystemComponent::DisableCameraLock()
 {
-	bIsLockOnTarget = false;
-	PROwner->SetRotationMode(EPRRotationMode::RotationMode_VelocityDirection);
-
-	APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(Target);
+	bActivateLockOnTarget = false;
+	
+	APRAICharacter* TargetPRAICharacter = Cast<APRAICharacter>(LockedOnTarget);
 	if(IsValid(TargetPRAICharacter) == true)
 	{
-		TargetPRAICharacter->SelectedTarget(false);
+		TargetPRAICharacter->LockedOnTarget(false);
 	}
 }
 
-void UPRTargetingSystemComponent::SetTarget(AActor* NewTarget)
+void UPRTargetingSystemComponent::SetLockedOnTarget(AActor* NewTarget)
 {
 	if(IsValid(NewTarget) == true)
 	{
-		Target = NewTarget;
+		LockedOnTarget = NewTarget;
+	}
+}
+
+void UPRTargetingSystemComponent::ChangeLockOnTargetWithMouse(const float& TurnValue)
+{
+	TimeSinceChangeTarget = GetWorld()->GetRealTimeSeconds() - LastTimeChangeTarget;
+	if(FMath::Abs(TurnValue) > MinMouseValueToChangeTarget
+		&& TimeSinceChangeTarget > MinDelayTimeToChangeTarget)
+	{
+		if(TurnValue < 0.0f)
+		{
+			SetLockedOnTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Left));
+		}
+		else
+		{
+			SetLockedOnTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Right));
+		}
+
+		LastTimeChangeTarget = GetWorld()->GetRealTimeSeconds();
+	}
+}
+
+void UPRTargetingSystemComponent::ChangeLockOnTargetWithGamepad(const float& TurnRate)
+{
+	if(FMath::Abs(TurnRate) < MinAnalogValueToChangeTarget)
+	{
+		bAnalogNeutralSinceLastSwitchTarget = true;
+	}
+
+	if(FMath::Abs(TurnRate) >= MinAnalogValueToChangeTarget && bAnalogNeutralSinceLastSwitchTarget)
+	{
+		if(TurnRate < KINDA_SMALL_NUMBER)
+		{
+			SetLockedOnTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Left));
+		}
+		else if(TurnRate > KINDA_SMALL_NUMBER)
+		{
+			SetLockedOnTarget(FindDirectionalTarget(EPRTargetDirection::TargetDirection_Right));
+		}
+
+		bAnalogNeutralSinceLastSwitchTarget = false;
 	}
 }
 
 AActor* UPRTargetingSystemComponent::FindTarget() const
 {
-	TArray<AActor*> TargetableActors = SearchTargetableActors();
+	float DistanceFromCenterOfScreen = 0.0f;
+	const FVector2D ScreenSize = GEngine->GameViewport->Viewport->GetSizeXY();
 	AActor* NewTarget = nullptr;
-	float DistanceFromCenterOfViewport = 0.0f;
-	const FVector2D ViewportSize = GEngine->GameViewport->Viewport->GetSizeXY();
+	TArray<AActor*> TargetableActors = SearchTargetableActors();
 
 	// 화면의 중앙에 가까운 액터를 찾아 NewTarget으로 설정합니다.
 	int32 ArrayIndex = 0;
 	for(AActor* TargetableActor : TargetableActors)
 	{
-		const float ActorScreenPosition = UKismetMathLibrary::Abs(GetScreenPositionOfActor(TargetableActor).Get<0>().X
-																	- ViewportSize.X / 2.0f);
+		FVector2D ActorPositionOnScreen = FVector2D::ZeroVector;
+		bool bIsActorOnScreen = false;
+		GetScreenPositionOfActor(*TargetableActor, ActorPositionOnScreen, bIsActorOnScreen);
+		
+		const float TargetableActorPositionOnScreen = UKismetMathLibrary::Abs(ActorPositionOnScreen.X - ScreenSize.X / 2.0f);
 
 		if(ArrayIndex == 0)
 		{
-			DistanceFromCenterOfViewport = ActorScreenPosition;
+			DistanceFromCenterOfScreen = TargetableActorPositionOnScreen;
 		}
 		else
 		{
-			if(ActorScreenPosition < DistanceFromCenterOfViewport)
+			if(TargetableActorPositionOnScreen < DistanceFromCenterOfScreen)
 			{
-				DistanceFromCenterOfViewport = ActorScreenPosition;
+				DistanceFromCenterOfScreen = TargetableActorPositionOnScreen;
 			}
 			else
 			{
-				continue;
+				continue;;
 			}
 		}
 
@@ -284,34 +343,34 @@ AActor* UPRTargetingSystemComponent::FindTarget() const
 
 TArray<AActor*> UPRTargetingSystemComponent::SearchTargetableActors() const
 {
-	const FVector PlayerLocation = PROwner->GetActorLocation();
-
+	const FVector PlayerLocation = GetOwner()->GetActorLocation();
 	TArray<FHitResult> HitResults;
 	TArray<AActor*> TargetableActors;
 
 	// ECollisionChannel::ECC_GameTraceChannel5는 TraceChannels의 Targeting을 나타냅니다.
 	bool bIsHit = GetWorld()->SweepMultiByChannel(HitResults, PlayerLocation, PlayerLocation, FQuat::Identity,
-													ECollisionChannel::ECC_GameTraceChannel5, FCollisionShape::MakeSphere(MaxSearchTargetableDistance));
+													ECollisionChannel::ECC_GameTraceChannel5, FCollisionShape::MakeSphere(MaxSearchTargetalbeDistance));
 	if(bIsHit)
 	{
-		for(FHitResult Hit : HitResults)
+		for(FHitResult HitResult : HitResults)
 		{
-			if(Hit.Actor.IsValid() == true)
+			if(HitResult.Actor.IsValid() == true)
 			{
-				APRAICharacter* HitedAI = Cast<APRAICharacter>(Hit.Actor);
-				if(IsValid(HitedAI) == true && HitedAI->IsDead() == false)
+				APRAICharacter* HitedPRAICharacter = Cast<APRAICharacter>(HitResult.Actor);
+				if(IsValid(HitedPRAICharacter) == true && HitedPRAICharacter->IsDead() == false)
 				{
-					TTuple<FVector2D, bool> ActorScreenPosition = GetScreenPositionOfActor(HitedAI);
-					if(IsInViewport(ActorScreenPosition.Get<0>()) == true && ActorScreenPosition.Get<1>() == true)
+					FVector2D HitedActorPositionOnScreen = FVector2D::ZeroVector;
+					bool bIsHitedActorOnScreen = false;
+					GetScreenPositionOfActor(*HitedPRAICharacter,HitedActorPositionOnScreen, bIsHitedActorOnScreen);
+					if(IsOnScreen(HitedActorPositionOnScreen) == true && bIsHitedActorOnScreen)
 					{
-						// 중복되지 않게 TargetableActors Array에 추가합니다.
-						TargetableActors.AddUnique(Cast<AActor>(Hit.Actor));
+						TargetableActors.AddUnique(HitResult.GetActor());
 					}
 				}
 			}
 		}
 	}
-	
+
 	return TargetableActors;
 }
 
@@ -319,18 +378,19 @@ AActor* UPRTargetingSystemComponent::FindDirectionalTarget(EPRTargetDirection Ne
 {
 	AActor* NewTarget = nullptr;
 	TArray<AActor*> TargetableActors = SearchTargetableActors();
-	const int32 CurrentTargetIndex = TargetableActors.Find(Target);
-
-	// 현재 Target이 TargetableActors 배열에 존재할 경우 배열에서 제거합니다.
+	const int32 CurrentTargetIndex = TargetableActors.Find(LockedOnTarget);
+	
+	// LockedOnTarget이 TargetableActors Array에 존재할 경우 배열에서 제거합니다.
 	if(CurrentTargetIndex != INDEX_NONE)
 	{
-		TargetableActors.Remove(Target);
+		TargetableActors.Remove(LockedOnTarget);
 	}
 
-	// 현재 Target을 기준으로 좌우에 있는 Target을 탐색합니다.
+	// LockedOnTarget을 기준으로 좌우에 존재하는 TargetableActor를 탐색합니다.
 	TArray<AActor*> LeftTargetableActors;
 	TArray<AActor*> RightTargetableActors;
-
+	// LeftTargetableActors.Empty();
+	// RightTargetableActors.Empty();
 	for(AActor* TargetableActor : TargetableActors)
 	{
 		APRAICharacter* TargetablePRAICharacter = Cast<APRAICharacter>(TargetableActor);
@@ -350,6 +410,57 @@ AActor* UPRTargetingSystemComponent::FindDirectionalTarget(EPRTargetDirection Ne
 		}
 	}
 
+	// // 두 벡터가 이루는 각이 클수록 두 벡터의 내적은 작습니다.
+	// switch(NewTargetDirection)
+	// {
+	// case EPRTargetDirection::TargetDirection_Left:
+	// 	if(LeftTargetableActors.Num() > 0)
+	// 	{
+	// 		// 왼쪽에서 내적이 가장 큰 Target
+	// 		NewTarget = GetTargetByDotProduct(LeftTargetableActors, true);
+	// 		
+	// 		if(CurrentTargetIndex != INDEX_NONE)
+	// 		{
+	// 			RightTargetableActors.AddUnique(LockedOnTarget);
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		// 오른쪽에서 내적이 가장 작은 Target
+	// 		NewTarget = GetTargetByDotProduct(RightTargetableActors, false);
+	//
+	// 		if(CurrentTargetIndex != INDEX_NONE)
+	// 		{
+	// 			LeftTargetableActors.AddUnique(LockedOnTarget);
+	// 		}
+	// 	}
+	// 	break;
+	// case EPRTargetDirection::TargetDirection_Right:
+	// 	if(RightTargetableActors.Num() > 0)
+	// 	{
+	// 		// 오른쪽에서 내적이 가장 큰 Target
+	// 		NewTarget = GetTargetByDotProduct(RightTargetableActors, true);
+	// 		
+	// 		if(CurrentTargetIndex != INDEX_NONE)
+	// 		{
+	// 			LeftTargetableActors.AddUnique(LockedOnTarget);
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		// 왼쪽에서 내적이 가장 작은 Target
+	// 		NewTarget = GetTargetByDotProduct(LeftTargetableActors, false);
+	// 		
+	// 		if(CurrentTargetIndex != INDEX_NONE)
+	// 		{
+	// 			RightTargetableActors.AddUnique(LockedOnTarget);
+	// 		}
+	// 	}
+	// 	break;
+	// default:
+	// 	break;
+	// }
+
 	// 두 벡터가 이루는 각이 클수록 두 벡터의 내적은 작습니다.
 	switch(NewTargetDirection)
 	{
@@ -358,23 +469,43 @@ AActor* UPRTargetingSystemComponent::FindDirectionalTarget(EPRTargetDirection Ne
 		{
 			// 왼쪽에서 내적이 가장 큰 Target
 			NewTarget = GetTargetByDotProduct(LeftTargetableActors, true);
+			
+			if(CurrentTargetIndex != INDEX_NONE)
+			{
+				RightTargetableActors.AddUnique(LockedOnTarget);
+			}
 		}
 		else
 		{
-			// 오른쪽에서 내적이 가장 작은 Target
-			NewTarget = GetTargetByDotProduct(RightTargetableActors, false);
+			// 오른쪽에서 내적이 가장 큰 Target
+			NewTarget = GetTargetByDotProduct(RightTargetableActors, true);
+
+			if(CurrentTargetIndex != INDEX_NONE)
+			{
+				LeftTargetableActors.AddUnique(LockedOnTarget);
+			}
 		}
 		break;
 	case EPRTargetDirection::TargetDirection_Right:
 		if(RightTargetableActors.Num() > 0)
 		{
-			// 오른쪽에서 내적이 가장 큰 Target
-			NewTarget = GetTargetByDotProduct(RightTargetableActors, true);
+			// 오른쪽에서 내적이 가장 작은 Target
+			NewTarget = GetTargetByDotProduct(RightTargetableActors, false);
+			
+			if(CurrentTargetIndex != INDEX_NONE)
+			{
+				LeftTargetableActors.AddUnique(LockedOnTarget);
+			}
 		}
 		else
 		{
 			// 왼쪽에서 내적이 가장 작은 Target
 			NewTarget = GetTargetByDotProduct(LeftTargetableActors, false);
+			
+			if(CurrentTargetIndex != INDEX_NONE)
+			{
+				RightTargetableActors.AddUnique(LockedOnTarget);
+			}
 		}
 		break;
 	default:
@@ -385,120 +516,180 @@ AActor* UPRTargetingSystemComponent::FindDirectionalTarget(EPRTargetDirection Ne
 	{
 		return NewTarget;
 	}
-	
+
 	return nullptr;
 }
 
 EPRTargetDirection UPRTargetingSystemComponent::WhichSideOfTarget(AActor* NewTargetableActor) const
 {
-	const FVector TargetActorDirection = UKismetMathLibrary::GetDirectionUnitVector(PlayerCameraManager->GetCameraLocation(),
-																					Target->GetActorLocation());
-	const FVector NewTargetableActorDirection = UKismetMathLibrary::GetDirectionUnitVector(PlayerCameraManager->GetCameraLocation(),
-																							NewTargetableActor->GetActorLocation());
-	const FVector NewDirection = UKismetMathLibrary::Cross_VectorVector(TargetActorDirection, NewTargetableActorDirection);
-	const float NewDot = UKismetMathLibrary::Dot_VectorVector(NewDirection, GetOwner()->GetActorUpVector());
+	// APlayerCameraManager* PlayerCameraManager = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
+	// if(IsValid(LockedOnTarget) == true && PlayerCameraManager != nullptr)
+	// {
+	// 	const FVector TargetActorDirection = UKismetMathLibrary::GetDirectionUnitVector(PlayerCameraManager->GetCameraLocation(), LockedOnTarget->GetActorLocation());
+	// 	const FVector NewTargetableActorDirection = UKismetMathLibrary::GetDirectionUnitVector(PlayerCameraManager->GetCameraLocation(), NewTargetableActor->GetActorLocation());
+	// 	const FVector NewDirection = UKismetMathLibrary::Cross_VectorVector(TargetActorDirection, NewTargetableActorDirection);
+	// 	const float NewDot = UKismetMathLibrary::Dot_VectorVector(NewDirection, GetOwner()->GetActorUpVector());
+	// 	if(NewDot >= 0.0f)
+	// 	{
+	// 		return EPRTargetDirection::TargetDirection_Right;
+	// 	}
+	// }
 
-	if(NewDot >= 0.0f)
+	if(IsValid(LockedOnTarget) == true)
 	{
+		const float TargetDot = CalculateDotProductToTarget(*LockedOnTarget);
+		const float NewTargetDot = CalculateDotProductToTarget(*NewTargetableActor);
+
+		if(TargetDot >= NewTargetDot)
+		{
+			return EPRTargetDirection::TargetDirection_Left;
+		}
+
 		return EPRTargetDirection::TargetDirection_Right;
 	}
-	
+
 	return EPRTargetDirection::TargetDirection_Left;
 }
 
 AActor* UPRTargetingSystemComponent::GetTargetByDotProduct(TArray<AActor*> TargetableActors, bool bIsLargestDot)
 {
-	float DotProduct = 0.0f;
-	AActor* NewTarget = nullptr;
-	int32 ArrayIndex = 0;
+	if(TargetableActors.Num() != 0)
+	{	
+		float DotProduct = 0.0f;
+		AActor* NewTarget = nullptr;
+		int32 ArrayIndex = 0;
 
-	if(TargetableActors.Num() == 0)
-	{
-		return nullptr;
-	}
-
-	for(AActor* TargetableActor : TargetableActors)
-	{
-		if(ArrayIndex == 0)
+		for(AActor* TargetableActor : TargetableActors)
 		{
-			DotProduct = CalculateDotProductToTarget(TargetableActor);
-			NewTarget = TargetableActor;
-		}
-		else
-		{
-			if(bIsLargestDot)
+			if(ArrayIndex == 0)
 			{
-				if(CalculateDotProductToTarget(TargetableActor) > DotProduct)
-				{
-					DotProduct = CalculateDotProductToTarget(TargetableActor);
-					NewTarget = TargetableActor;
-				}
+				DotProduct = CalculateDotProductToTarget(*TargetableActor);
+				NewTarget = TargetableActor;
 			}
 			else
 			{
-				if(CalculateDotProductToTarget(TargetableActor) < DotProduct)
+				// if(bIsLargestDot)
+				// {
+				// 	if(CalculateDotProductToTarget(*TargetableActor) > DotProduct)
+				// 	{
+				// 		DotProduct = CalculateDotProductToTarget(*TargetableActor);
+				// 		NewTarget = TargetableActor;
+				// 	}
+				// }
+				// else
+				// {
+				// 	if(CalculateDotProductToTarget(*TargetableActor) < DotProduct)
+				// 	{
+				// 		DotProduct = CalculateDotProductToTarget(*TargetableActor);
+				// 		NewTarget = TargetableActor;
+				// 	}
+				// }
+
+				if((bIsLargestDot && CalculateDotProductToTarget(*TargetableActor) > DotProduct)
+					|| (!bIsLargestDot && CalculateDotProductToTarget(*TargetableActor) < DotProduct))
 				{
-					DotProduct = CalculateDotProductToTarget(TargetableActor);
+					DotProduct = CalculateDotProductToTarget(*TargetableActor);
 					NewTarget = TargetableActor;
 				}
 			}
+
+			ArrayIndex++;
 		}
 
-		ArrayIndex++;
+		return NewTarget;
 	}
 
-	return NewTarget;
+	return nullptr;
 }
 
-float UPRTargetingSystemComponent::CalculateDotProductToTarget(AActor* NewTargetableActor) const
+float UPRTargetingSystemComponent::CalculateDotProductToTarget(const AActor& NewTargetableActor) const
 {
-	const FVector TargetActorDirection = UKismetMathLibrary::GetDirectionUnitVector(GetOwner()->GetActorLocation(),
-																					Target->GetActorLocation());
-	const FVector NewTargetableActorDirection = UKismetMathLibrary::GetDirectionUnitVector(GetOwner()->GetActorLocation(),
-																							NewTargetableActor->GetActorLocation());
+	// const FVector TargetActorDirection = UKismetMathLibrary::GetDirectionUnitVector(GetOwner()->GetActorLocation(), LockedOnTarget->GetActorLocation());
+	// const FVector NewTargetableActorDirection = UKismetMathLibrary::GetDirectionUnitVector(GetOwner()->GetActorLocation(), NewTargetableActor.GetActorLocation());
 	
-	return UKismetMathLibrary::Dot_VectorVector(TargetActorDirection, NewTargetableActorDirection);
+	// return UKismetMathLibrary::Dot_VectorVector(TargetActorDirection, NewTargetableActorDirection);
+
+	APlayerCameraManager* PlayerCameraManager = UGameplayStatics::GetPlayerCameraManager(GetWorld(), 0);
+	if(PlayerCameraManager != nullptr)
+	{
+		const FVector NewTargetableActorDirection = UKismetMathLibrary::GetDirectionUnitVector(PlayerCameraManager->GetCameraLocation(), NewTargetableActor.GetActorLocation());
+		const FVector CrossProduct = UKismetMathLibrary::Cross_VectorVector(PlayerCameraManager->GetActorForwardVector(), NewTargetableActorDirection);
+
+		return UKismetMathLibrary::Dot_VectorVector(PlayerCameraManager->GetActorUpVector(), CrossProduct);
+	}
+
+	return 0.0f;
 }
 
-TTuple<FVector2D, bool> UPRTargetingSystemComponent::GetScreenPositionOfActor(AActor* SearchActor) const
+void UPRTargetingSystemComponent::GetScreenPositionOfActor(const AActor& SearchActor, FVector2D& SearchActorPositionOnScreen, bool& bIsSearchActorOnScreen) const
 {
-	FVector2D ScreenLocation = FVector2D::ZeroVector;
-	bool bResult = UGameplayStatics::ProjectWorldToScreen(PlayerController, SearchActor->GetActorLocation(),
-														ScreenLocation);
-
-	return MakeTuple(ScreenLocation, bResult);
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if(PlayerController != nullptr)
+	{
+		bIsSearchActorOnScreen = UGameplayStatics::ProjectWorldToScreen(PlayerController, SearchActor.GetActorLocation(), SearchActorPositionOnScreen);
+	}
 }
 
-bool UPRTargetingSystemComponent::IsInViewport(FVector2D ActorScreenPosition) const
+bool UPRTargetingSystemComponent::IsOnScreen(const FVector2D& ActorPositionOnScreen, float ScreenRatio) const
 {
-	FVector2D ViewportSize = GEngine->GameViewport->Viewport->GetSizeXY();
+	const FVector2D ScreenSize = GEngine->GameViewport->Viewport->GetSizeXY();
 
-	return ActorScreenPosition.X > 0.0f && ActorScreenPosition.Y > 0.0f
-			&& ActorScreenPosition.X <= ViewportSize.X && ActorScreenPosition.Y <= ViewportSize.Y;
+	// 화면 전체를 사용할 경우
+	if(ScreenRatio == 1.0f || ScreenRatio == 0.0f
+		|| UKismetMathLibrary::Abs(ScreenRatio) > 1.0f)
+	{
+		return ActorPositionOnScreen.X >= 0.0f && ActorPositionOnScreen.Y >= 0.0f
+				&& ActorPositionOnScreen.X <= ScreenSize.X && ActorPositionOnScreen.Y <= ScreenSize.Y;
+	}
+
+	float LargeScreenRatio = 0.0f;
+	float SmallScreenRatio = 0.0f;
+	if(ScreenRatio < (1.0f - ScreenRatio))
+	{
+		LargeScreenRatio = 1.0f - ScreenRatio;
+		SmallScreenRatio = ScreenRatio;
+	}
+	else
+	{
+		LargeScreenRatio = ScreenRatio;
+		SmallScreenRatio = 1.0f - ScreenRatio;
+	}
+	
+	return ActorPositionOnScreen.X >= ScreenSize.X * SmallScreenRatio && ActorPositionOnScreen.X <= ScreenSize.X * LargeScreenRatio
+			&& ActorPositionOnScreen.Y >= ScreenSize.Y * SmallScreenRatio && ActorPositionOnScreen.Y <= ScreenSize.Y * LargeScreenRatio;
 }
 
-FRotator UPRTargetingSystemComponent::CalculateInterpToTarget(AActor* InterpToTarget) const
+FRotator UPRTargetingSystemComponent::CalculateInterpToTarget(const AActor& InterpToTarget) const
 {
-	if(IsValid(InterpToTarget) == true)
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if(IsValid(&InterpToTarget) == true && PlayerController != nullptr)
 	{
 		const FRotator PlayerControllerRotator = PlayerController->GetControlRotation();
-		const FVector PlayerLocation = PROwner->GetActorLocation();
-		const FVector TargetLocation = InterpToTarget->GetActorLocation();
+		const FVector PlayerLocation = GetPROwner()->GetActorLocation();
+		const FVector TargetLocation = InterpToTarget.GetActorLocation();
 
-		// 2개의 위치 벡터를 입력하여 2번 째 인자의 위치 벡터를 바라보는 방향정보를 반환합니다.
+		// 플레이어와 Target의 위치를 입력하여 Target을 바라보는 방향정보를 반환합니다.
 		const FRotator LookAtTarget = UKismetMathLibrary::FindLookAtRotation(PlayerLocation, TargetLocation);
-		// 1번 째 인자에서 2번 째 인자로 회전 보간합니다.
-		const FRotator RInterpToRotator = FMath::RInterpTo(PlayerControllerRotator, LookAtTarget,
-															GetWorld()->GetDeltaSeconds(), InterpSpeed);
 
-		return RInterpToRotator;
+		// 플레이어 컨트롤러를 LookAtTarget으로 회전 보간합니다.
+		return FMath::RInterpTo(PlayerControllerRotator, LookAtTarget, GetWorld()->GetDeltaSeconds(), InterpSpeed);
 	}
-	
+
 	return FRotator::ZeroRotator;
 }
 
-AActor* UPRTargetingSystemComponent::GetTarget() const
+AActor* UPRTargetingSystemComponent::GetLockedOnTarget() const
 {
-	return Target;
+	return LockedOnTarget;
 }
-#pragma endregion 
+
+float UPRTargetingSystemComponent::GetMaxSearchTargetalbeDistance() const
+{
+	return 	MaxSearchTargetalbeDistance;
+}
+
+void UPRTargetingSystemComponent::SetActivateDynamicCameraLock(bool bNewActivateDynamicCameraLock)
+{
+	bActivateDynamicCameraLock = bNewActivateDynamicCameraLock;
+}
+

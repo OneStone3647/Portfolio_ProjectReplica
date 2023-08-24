@@ -6,8 +6,10 @@
 #include "Components/ActorComponent.h"
 #include "PRBaseActorComponent.generated.h"
 
+class APRBaseCharacter;
+
 /**
- * PROwner를 사용하는 ActorComponent의 베이스가 되는 ActorComponent 클래스입니다.
+ * PRBaseCharacter가 사용하는 ActorComponent의 기본이 되는 ActorComponent 클래스입니다.
  */
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PROJECTREPLICA_API UPRBaseActorComponent : public UActorComponent
@@ -19,15 +21,17 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-
-#pragma region PRCharacterReference
+	
 protected:
 	/** PROwner를 초기화하는 함수입니다. */
 	void InitializePROwner();
-	
-protected:
-	/** 이 ActorComponent를 소유하는 PRBaseCharacter입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRBaseActorComponent|PRCharacterReference")
-	class APRBaseCharacter* PROwner;
-#pragma endregion
+
+private:
+	/** 이 ActorComponent를 소유하고 있는 PRBaseCharacter입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRCharacterReference", meta = (AllowPrivateAccess = "true"))
+	APRBaseCharacter* PROwner;
+
+public:
+	/** PROwner를 반환하는 함수입니다. */
+	class APRBaseCharacter* GetPROwner() const;
 };

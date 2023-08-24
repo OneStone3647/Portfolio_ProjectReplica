@@ -3,13 +3,23 @@
 #pragma once
 
 #include "ProjectReplica.h"
-#include "Enums/Enum_PRGait.h"
-#include "Enums/Enum_PRRotationMode.h"
+#include "Common/PRCommonStruct.h"
 #include "GameFramework/Character.h"
 #include "PRBaseCharacter.generated.h"
 
+class UPRAnimSystemComponent;
+class UPRMovementSystemComponent;
+class UPRStateSystemComponent;
+class UPRStatSystemComponent;
+class UPRWeaponSystemComponent;
+class UPRSkillSystemComponent;
+class UPRObjectPoolSystemComponent;
+class UPREffectSystemComponent;
+
+struct FPRWeaponGroup;
+
 /**
- * 캐릭터의 바탕이 되는 Character 클래스입니다.
+ * 기본 캐릭터 클래스입니다.
  */
 UCLASS()
 class PROJECTREPLICA_API APRBaseCharacter : public ACharacter
@@ -20,176 +30,206 @@ public:
 	APRBaseCharacter();
 
 protected:
-	/** 액터에 속한 모든 컴포넌트의 세팅이 완료되면 호출되는 함수입니다. */
-	virtual void PostInitializeComponents() override;
+	virtual void PostInitializeComponents() override;	// 액터에 속한 모든 컴포넌트의 세팅이 완료되면 호출되는 함수입니다. 
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode) override;
 	virtual void Landed(const FHitResult& Hit) override;
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+#pragma region TakeDamage
 public:
 	/** 캐릭터가 사망했는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRBaseCharacter|TakeDamage")
 	bool IsDead() const;
 	
 protected:
 	/**
-	 * 피격 당했을 때 호출하는 함수입니다.
+	 * 캐릭터가 피격 당했을 때 호출하는 함수입니다.
 	 * 공격자를 향해 바라보고 피격 애니메이션을 재생합니다.
-	 * @param DamageCauser 공격자입니다.
+	 *
+	 * @param DamageCauser 캐릭러를 공격한 공격자입니다.
 	 */
 	virtual void TakeHit(AActor* DamageCauser);
 
-	/** 캐릭터가 사망할 때 호출하는 함수입니다. */
+	/** 캐릭터가 사망했을 때 호출하는 함수입니다. */
 	UFUNCTION()
 	virtual void Dead();
-	
-#pragma region MovementSystem
+
 protected:
-	/** 캐릭터의 움직임을 관리하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRCharacter|MovementSystem")
-	class UPRMovementSystemComponent* MovementSystem;
-
-public:
-	/** MovementSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRMovementSystemComponent* GetMovementSystem() const
-	{
-		return MovementSystem;
-	}
-
-	/** MovementSystem의 SetRotationMode 함수를 실행하는 함수입니다. */
-	void SetRotationMode(EPRRotationMode NewRotationMode);
-#pragma endregion
-
-#pragma region StateSystem
-protected:
-	/** 캐릭터의 상태를 관리하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRCharacter|StateSystem")
-	class UPRStateSystemComponent* StateSystem;
-
-public:
-	/** StateSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRStateSystemComponent* GetStateSystem() const
-	{
-		return StateSystem;
-	}
-#pragma endregion
-
-#pragma region StatSystem
-protected:
-	/* 캐릭터의 스탯(능력치)를 관리하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRCharacter|StatSystem")
-	class UPRStatSystemComponent* StatSystem;
-
-public:
-	/** StatSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRStatSystemComponent* GetStatSystem() const
-	{
-		return StatSystem;
-	}
+	/** 피격 애니메이션입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "PRBaseCharater|TakeDamage")
+	FPRAnimMontage HitAnimMontage;
 #pragma endregion 
+
+#pragma region MovementInput
+public:
+	/** 캐릭터가 점프했는지 판별하는 함수입니다. */
+	bool IsJumped() const;
+	
+protected:
+	virtual void Jump() override;
+
+protected:
+	/** 캐릭터가 점프했는지 나타내는 변수입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MovementInput")
+	bool bJumped;
+	
+	/** Jumped를 false로 설정할 때 딜레이를 주는 TimerHandle입니다. */
+	FTimerHandle JumpedDelayTimerHandle;
+#pragma endregion
 
 #pragma region AnimSystem
 protected:
-	/** 캐릭터의 애니메이션을 관리하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRCharacter|AnimSystem")
-	class UPRAnimSystemComponent* AnimSystem;
+	/** 캐릭터가 사용하는 PRAnimMontage들을 초기화하는 함수입니다. */
+	virtual void InitializePRAnimMontages();
+	
+private:
+	/** 캐릭터가 재생하는 PRAnimMontage를 관리하고 재생하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AnimSystem", meta = (AllowPrivateAccess = "true"))
+	UPRAnimSystemComponent* AnimSystem;
 
 public:
 	/** AnimSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRAnimSystemComponent* GetAnimSystem() const
-	{
-		return AnimSystem;
-	}
+	FORCEINLINE class UPRAnimSystemComponent* GetAnimSystem() const { return AnimSystem; }
+#pragma endregion
+
+#pragma region MovementSystem
+private:
+	/** 캐릭터의 움직임을 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MovementSystem", meta = (AllowPrivateAccess = "true"))
+	UPRMovementSystemComponent* MovementSystem;
+
+public:
+	/** MovementSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRMovementSystemComponent* GetMovementSystem() const	{ return MovementSystem; }
+#pragma endregion
+
+#pragma region StateSystem
+private:
+	/** 캐릭터의 상태를 관리하는 ActorComponent 클래스입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "StateSystem", meta = (AllowPrivateAccess = "true"))
+	UPRStateSystemComponent* StateSystem;
+
+public:
+	/** StateSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRStateSystemComponent* GetStateSystem() const { return StateSystem;	}
+#pragma endregion 
+
+#pragma region StatSystem
+private:
+	/** 캐릭터의 스탯을 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "StatSystem", meta = (AllowPrivateAccess = "true"))
+	UPRStatSystemComponent* StatSystem;
+
+public:
+	/** StatSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRStatSystemComponent* GetStatSystem() const { return StatSystem; }
 #pragma endregion
 
 #pragma region WeaponSystem
-protected:
-	/** 캐릭터의 무기를 관리하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRCharacter|WeaponSystem")
-	class UPRWeaponSystemComponent* WeaponSystem;
+private:
+	/** 캐릭터의 무기를 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "WeaponSystem", meta = (AllowPrivateAccess = "true"))
+	UPRWeaponSystemComponent* WeaponSystem;
 
 public:
 	/** WeaponSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRWeaponSystemComponent* GetWeaponSystem() const
-	{
-		return WeaponSystem;
-	}
-#pragma endregion 
-	
-#pragma region DodgeSystem
-protected:
-	/** 캐릭터의 회피를 실행하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRCharacter|DodgeSystem")
-	class UPRDodgeSystemComponent* DodgeSystem;
+	FORCEINLINE class UPRWeaponSystemComponent* GetWeaponSystem() const	{ return WeaponSystem; }
 
-public:
-	/** DodgeSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRDodgeSystemComponent* GetDodgeSystem() const
-	{
-		return DodgeSystem;
-	}
+	// /** 현재 장비한 무기를 반환하는 함수입니다. */
+	// FPRWeaponGroup GetEquippedWeaponGroup() const;
 #pragma endregion
 
-#pragma region CharacterMovement
-protected:
-	/**
-	 * 입력받은 인자에 따라 캐릭터가 달리는지 전력질주하는지 설정합니다.
-	 * @NewPRGait: 설정할 캐릭터의 걷는 모양입니다.
-	 */
-	void SetRunOrSprint(EPRGait NewPRGait);
-
-	/**
-	 * 착지하고 바로 달렸을 때 발소리와 착지 소리를 출력하는 함수입니다.
-	 * AnimNotify로 구현하지 못하였기에 이렇게 구현합니다.
-	 */
-	void LandedAndAccelerating();
-#pragma endregion
-
-#pragma region AudioComponent
-protected:
-	/** 캐릭터의 발소리 AudioComponent입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRCharacter|Audio")
-	UAudioComponent* FootStepAudio;
-
-	/** 발소리 출력 크기입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRJump", Meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float FootStepVolume;
-	
-	/** 캐릭터의 점프소리 AudioComponent입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRCharacter|Audio")
-	UAudioComponent* JumpAudio;
-	
-	/** 점프 목소리 출력 크기입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRJump", Meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float JumpVoiceVolume;
+#pragma region SkillSystem
+private:
+	/** 캐릭터의 스킬을 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SkillSystem", meta = (AllowPrivateAccess = "true"))
+	UPRSkillSystemComponent* SkillSystem;
 
 public:
-	FORCEINLINE UAudioComponent* GetFootStepAudio() const
-	{
-		return FootStepAudio;
-	}
+	/** SkillSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRSkillSystemComponent* GetSkillSystem() const { return SkillSystem; }
+#pragma endregion
 
-	/** FootStepVolume을 반환하는 함수입니다. */
-	float GetFootStepVolume() const;
+#pragma region ObjectPoolSystem
+protected:
+	/** 오브젝트 풀을 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem", meta = (AllowPrivateAccess = "true"))
+	UPRObjectPoolSystemComponent* ObjectPoolSystem;
 
-	FORCEINLINE UAudioComponent* GetJumpAudio() const
-	{
-		return JumpAudio;
-	}
+public:
+	/** ObjectPoolSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRObjectPoolSystemComponent* GetObjectPoolSystem() const { return ObjectPoolSystem; }
+#pragma endregion
 
-	/** JumpVoiceVolume을 반환하는 함수입니다. */
-	float GetJumpVoiceVolume() const;
+#pragma region EffectSystem
+private:
+	/** 플레이어가 사용하는 Effect를 관리하는 ActorComponent 클래스입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	UPREffectSystemComponent* EffectSystem;
+
+public:
+	/** EffectSystem을 반환하는 함수입니다. */
+	UPREffectSystemComponent* GetEffectSystem() const {	return EffectSystem; }
 #pragma endregion
 
 #pragma region Dodge
 protected:
-	/** 캐릭터가 회피하는 함수입니다. */
+	/** 회피에 사용하는 PRAnimMontage들을 초기화하는 함수입니다. */
+	void InitializeDodgePRAnimMontages();
+	
+	/** 회피를 실행하는 함수입니다. */
 	virtual void Dodge();
-#pragma endregion 
 
-#pragma region Attack
-	/** 캐릭터가 공격하는 함수입니다. */
-	virtual void Attack();
-#pragma endregion 
+protected:
+	/** 회피 PRAnimMontage를 보관한 Map입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Dodge")
+	TMap<FName, FPRAnimMontage> DodgePRAnimMontages;
+	
+	/** 전방 회피 PRAnimMontage의 ID 값입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dodge")
+	int32 ForwardDodgePRAnimMontageID;
+
+	/** 후방 회피 PRAnimMontage의 ID 값입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dodge")
+	int32 BackwardDodgePRAnimMontageID;
+
+	/** 좌방 회피 PRAnimMontage의 ID 값입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dodge")
+	int32 LeftDodgePRAnimMontageID;
+
+	/** 우방 회피 PRAnimMontage의 ID 값입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dodge")
+	int32 RightDodgePRAnimMontageID;
+
+	/** 공중 전방 회피 PRAnimMontage의 ID 값입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dodge")
+	int32 AerialForwardDodgePRAnimMontageID;
+#pragma endregion
+
+#pragma region NormalAttack
+public:
+	/** PlayNormalAttackIndex를 초기화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "NormalAttack")
+	virtual void InitializePlayNormalAttackIndex();
+	
+	/**
+	 * PlayNormalAttackIndex를 1 증가 시키는 함수입니다.
+	 * PlayNormalAttackIndex가 현재 재생하는 AttackPRAnimMontage를 보관한 Array의 크기와 같을 경우 0으로 설정합니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "NormalAttack")
+	virtual void IncreasePlayNormalAttackIndex();
+#pragma endregion
+
+#pragma region Effect
+protected:
+	/** Effect의 시그니처 컬러입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Effect", meta = (AllowPrivateAccess = "true"))
+	FLinearColor SignatureEffectColor;
+
+public:
+	/** SignatureEffectColor를 반환합는 함수입니다. */
+	FLinearColor GetSignatureEffectColor() const;
+#pragma endregion
 };

@@ -12,13 +12,6 @@
 //////////////////////////////////////////////////////////////////////////
 // AProjectReplicaCharacter
 
-void AProjectReplicaCharacter::BeginPlay()
-{
-	Super::BeginPlay();
-
-	PR_LOG_SCREEN("Test");
-}
-
 AProjectReplicaCharacter::AProjectReplicaCharacter()
 {
 	// Set size for collision capsule

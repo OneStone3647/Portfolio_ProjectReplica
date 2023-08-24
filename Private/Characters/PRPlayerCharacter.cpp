@@ -2,33 +2,43 @@
 
 
 #include "Characters/PRPlayerCharacter.h"
-#include "Enums/Enum_PRDirectionVector.h"
-#include "Components/PRDodgeSystemComponent.h"
-#include "Components/PRStateSystemComponent.h"
-#include "Components/PRMovementSystemComponent.h"
-#include "Components/PRTargetingSystemComponent.h"
 #include "Components/PRAnimSystemComponent.h"
+#include "Components/PRMovementSystemComponent.h"
+#include "Components/PRStateSystemComponent.h"
 #include "Components/PRWeaponSystemComponent.h"
-#include "Weapons/PRBaseWaepon.h"
-#include "Weapons/PROverlapCollision.h"
-#include "Effects/PRGhostTrail.h"
-#include "Enums/Enum_PRDirection.h"
-#include "Enums/Enum_PRWeaponEquipPosition.h"
+#include "Components/PRTargetingSystemComponent.h"
+#include "Components/PRSkillSystemComponent.h"
+#include "Components/PRTimeStopSystemComponent.h"
+#include "Components/PREffectSystemComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "Effect/PRAfterImage.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "Components/CapsuleComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "PRPlayerController.h"
+#include "Components/ArrowComponent.h"
+#include "Interfaces/PRInteractInterface.h"
+#include "Kismet/GameplayStatics.h"
+#include "Widgets/PRComboCountWidget.h"
+#include "Widgets/PRInGameHUD.h"
+#include "Widgets/PRInteractWidget.h"
+#include "Skills/PRBaseSkill.h"
+#include "Weapons/PRBaseWeapon.h"
 
 APRPlayerCharacter::APRPlayerCharacter()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	// Debug
+	bDebug = false;
 
 	// CapsuleComponent
 	GetCapsuleComponent()->SetCollisionProfileName(TEXT("PlayerCharacter"));
+	
+	// Camera
+	SpringArm = nullptr;
+	FollowCamera = nullptr;
 	
 	// SpringArm
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -38,7 +48,9 @@ APRPlayerCharacter::APRPlayerCharacter()
 	SpringArm->SocketOffset = FVector(0.0f, 0.0f, 200.0f);
 	SpringArm->bUsePawnControlRotation = true;										// 컨트롤러를 기준으로 SpringArm을 회전합니다.
 	SpringArm->bEnableCameraLag = true;
+	SpringArm->bEnableCameraRotationLag = true;
 	SpringArm->CameraLagSpeed = 10.0f;
+	SpringArm->CameraRotationLagSpeed = 20.0f;
 
 	// FollowCamera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -46,177 +58,328 @@ APRPlayerCharacter::APRPlayerCharacter()
 	FollowCamera->bUsePawnControlRotation = false;									// 카메라가 SpringArm을 기준으로 회전하지 않습니다.
 	FollowCamera->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
 
+	// ResetCameraPosition
+	ResetCameraPositionArrow = CreateDefaultSubobject<UArrowComponent>(TEXT("ResetCameraPositionArrow"));
+	ResetCameraPositionArrow->SetupAttachment(RootComponent);
+	
 	// Camera
+	bTurnMoveCamera = false;
+	bLookUpMoveCamera = false;
+	bTurnRateMoveCamera = false;
+	bLookUpRateMoveCamera = false;
 	BaseTurnRate = 45.0f;
 	BaseLookUpRate = 45.0f;
-	CameraZoomOutCurveFloat = nullptr;
+	ResetCameraFloatCurve = nullptr;
+	MonochromeColorSaturation = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
+	MonochromeColorGamma = FVector4(0.7f, 0.7f, 0.7f, 1.0f);
 
-	// CharacterMovement
+	// MovementInput
 	DoubleJumpAnimMontage = nullptr;
-	DoubleJumpNiagaraEffect = nullptr;
-	DoubleJumpNiagaraEffectColor = FLinearColor(20.000017f, 14.999998, 200.0, 1.0f);
-	DoubleJumpNiagaraEffectSpawnSocketName = FName("ball_r");
-	bIsDoubleJump = false;
-	bCanDoubleJump = true;
-	DoubleJumpVelocity = GetCharacterMovement()->JumpZVelocity;
+	// bDoubleJumpable = true;
+	MinRunInputAxis = 0.42f;
+	bWalkToggleInput = false;
+	bSprintInput = false;
+	bDodgeInput = false;
+	SprintableHoldTime = 0.3f;
 
 	// TargetingSystem
 	TargetingSystem = CreateDefaultSubobject<UPRTargetingSystemComponent>(TEXT("TargetingSystem"));
+	bReadyToChangeTarget = false;
 
-	// Effects
-	GhostTrail = nullptr;
-	GhostTrailSpawnCount = 3;
-	GhostTrailObjectPool.Empty();
+	// TimeStopSystem
+	TimeStopSystem = CreateDefaultSubobject<UPRTimeStopSystemComponent>(TEXT("TimeStopSystem"));
 
-	// AttackOverlapCollision
-	bDrawDebugAttackOverlapCollision = false;
-	AttackOverlapCollision = nullptr;
-	AttackOverlapCollisionSpawnCount = 2;
-	AttackOverlapCollisionObjectPool.Empty();
+	// Interact
+	InteractableObjects.Empty();
+	SelectInteractIndex = 0;
+	bResetInteractInput = false;
+	
+	// Effect
+	SignatureEffectColor = FLinearColor(20.0f, 15.0f, 200.0f, 1.0f);
+	DoubleJumpNiagaraEffect = nullptr;
+	
+	// AfterImage
+	AfterImage = nullptr;
+	AfterImageInitSpawnCount = 2;
+	AfterImageObjectPool.Empty();
+
+	// SkillPalette
+	bIsOpenSkillPalette = false;
+
+	// ComboCount
+	ComboCount = 0;
+	ComboCountResetTime = 3.0f;
+}
+
+void APRPlayerCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
 }
 
 void APRPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	InitializeCameraZoomOutTimeline();
-	InitializeGhostTrailObjectPool(GhostTrailSpawnCount);
-	InitializeAttackOverlapCollision(AttackOverlapCollisionSpawnCount);
+	// Camera
+	InitializeResetCameraTimeline();
+
+	// ObjectPool
+	InitializeAfterImageObjectPool(AfterImageInitSpawnCount);
+
+	// InGameHUD
+	// 컨트롤러에서 뷰포트에 위젯을 추가하는 것이 캐릭터의 BeginPlay보다 먼저 실행되므로
+	// 캐릭터가 시작되면서 HUD에 필요한 정보를 초기화합니다.
+	InitializeInGameHUD();
+
+	// WeaponSystem
+	GetWeaponSystem()->InitializeWeaponInventory();
+
+	// StateSystem
+	if(GetWeaponSystem()->GetWeaponInventory().Num() != 0)
+	{
+		GetStateSystem()->SetActionable(EPRAction::Action_Attack, true);
+	}
 }
 
-void APRPlayerCharacter::Tick(float DeltaSeconds)
+void APRPlayerCharacter::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaSeconds);
+	Super::Tick(DeltaTime);
 
-	CameraZoomOutTimeline.TickTimeline(DeltaSeconds);
-
-	if(MovementSystem->GetGait() == EPRGait::Gait_Sprinting)
-	{
-		CameraZoomOutWhenSprint(true);
-	}
-	else
-	{
-		CameraZoomOutWhenSprint(false);
-	}
+	ResetCameraTimeline.TickTimeline(DeltaTime);
 }
 
 void APRPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &APRPlayerCharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &APRPlayerCharacter::StopJumping);
+	
+	// 마우스를 사용한 카메라 회전
 	PlayerInputComponent->BindAxis("Turn", this, &APRPlayerCharacter::Turn);
 	PlayerInputComponent->BindAxis("LookUp", this, &APRPlayerCharacter::LookUp);
 
+	// 게임패드를 사용한 카메라 회전
 	PlayerInputComponent->BindAxis("TurnRate", this, &APRPlayerCharacter::TurnRate);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &APRPlayerCharacter::LookUpRate);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &APRPlayerCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &APRPlayerCharacter::MoveRight);
-	
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &APRPlayerCharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
-	PlayerInputComponent->BindAction<TDelegate<void(EPRGait)>>("Sprint", IE_Pressed, this, &APRPlayerCharacter::SetRunOrSprint, EPRGait::Gait_Sprinting);
-	PlayerInputComponent->BindAction<TDelegate<void(EPRGait)>>("Sprint", IE_Released, this, &APRPlayerCharacter::SetRunOrSprint, EPRGait::Gait_Running);
-	PlayerInputComponent->BindAction("ToggleWalkRun", IE_Pressed, this, &APRPlayerCharacter::ToggleWalkRun);
+	PlayerInputComponent->BindAction("Walk", IE_Pressed, this, &APRPlayerCharacter::Walk);
 
-	PlayerInputComponent->BindAction("TargetLockOn", IE_Pressed, this, &APRPlayerCharacter::ExecuteLockOnTarget);
+	PlayerInputComponent->BindAction("LockOnTarget", IE_Pressed, this, &APRPlayerCharacter::ActivateLockOnTarget);
+	PlayerInputComponent->BindAction<TDelegate<void(bool)>>("ReadyToChangeTarget", IE_Pressed, this ,&APRPlayerCharacter::ReadyToChangeTarget, true);
+	PlayerInputComponent->BindAction<TDelegate<void(bool)>>("ReadyToChangeTarget", IE_Released, this ,&APRPlayerCharacter::ReadyToChangeTarget, false);
+
+	PlayerInputComponent->BindAxis("SelectInteraction", this, &APRPlayerCharacter::SelectInteraction);
+	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &APRPlayerCharacter::ExecuteInteract);
+
+	PlayerInputComponent->BindAction<TDelegate<void(bool)>>("Sprint", IE_Pressed, this ,&APRPlayerCharacter::Sprint, true);
+	PlayerInputComponent->BindAction<TDelegate<void(bool)>>("Sprint", IE_Released, this ,&APRPlayerCharacter::Sprint, false);
 
 	PlayerInputComponent->BindAction("Dodge", IE_Pressed, this, &APRPlayerCharacter::Dodge);
-	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &APRPlayerCharacter::Attack);
-	PlayerInputComponent->BindAction("SwapWeapon", IE_Pressed, this, &APRPlayerCharacter::SwapWeapon);
+
+	// 원신식 회피/달리기
+	// PlayerInputComponent->BindAction<TDelegate<void(bool)>>("Dodge/Sprint", IE_Pressed, this ,&APRPlayerCharacter::DodgeAndSprint, true);
+	// PlayerInputComponent->BindAction<TDelegate<void(bool)>>("Dodge/Sprint", IE_Released, this ,&APRPlayerCharacter::DodgeAndSprint, false);
+	
+	PlayerInputComponent->BindAction<TDelegate<void(bool)>>("OpenSkillPalette", IE_Pressed, this ,&APRPlayerCharacter::OpenSkillPalette, true);
+	PlayerInputComponent->BindAction<TDelegate<void(bool)>>("OpenSkillPalette", IE_Released, this ,&APRPlayerCharacter::OpenSkillPalette, false);
+
+	PlayerInputComponent->BindAction<TDelegate<void(EPRCommandSkill)>>("ActivateFirstBattleSkill", IE_Pressed, this, &APRPlayerCharacter::ActivateBattleSkill, EPRCommandSkill::CommandSkill_FirstBattleSkill);
+	PlayerInputComponent->BindAction<TDelegate<void(EPRCommandSkill)>>("ActivateSecondBattleSkill", IE_Pressed, this, &APRPlayerCharacter::ActivateBattleSkill, EPRCommandSkill::CommandSkill_SecondBattleSkill);
+	PlayerInputComponent->BindAction<TDelegate<void(EPRCommandSkill)>>("ActivateThirdBattleSkill", IE_Pressed, this, &APRPlayerCharacter::ActivateBattleSkill, EPRCommandSkill::CommandSkill_ThirdBattleSkill);
+	PlayerInputComponent->BindAction<TDelegate<void(EPRCommandSkill)>>("Ultimate", IE_Pressed, this, &APRPlayerCharacter::ActivateBattleSkill, EPRCommandSkill::CommandSkill_Ultimate);
 }
 
 void APRPlayerCharacter::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
 
-	bIsDoubleJump = false;
-	bCanDoubleJump = true;
-	MovementSystem->SetWasAerial(false);
+	// bDoubleJumpable = true;
+	GetStateSystem()->SetActionable(EPRAction::Action_DoubleJump, true);
 }
 
 #pragma region Camera
+bool APRPlayerCharacter::IsMoveCamera() const
+{
+	return bTurnMoveCamera || bLookUpMoveCamera || bTurnRateMoveCamera || bLookUpRateMoveCamera;
+}
+
+void APRPlayerCharacter::InitializeResetCameraTimeline()
+{
+	if(ResetCameraFloatCurve != nullptr)
+	{
+		float CurveMinTime = 0.0f;
+		float CurveMaxTime = 0.0f;
+
+		if(ResetCameraTimelineProgress.IsBound() == false)
+		{
+			// Callback 함수에서 사용할 함수를 바인딩합니다.
+			ResetCameraTimelineProgress.BindUFunction(this, FName("ResetCamera"));
+
+			// Timeline에 Curve를 추가합니다.
+			ResetCameraTimeline.AddInterpFloat(ResetCameraFloatCurve, ResetCameraTimelineProgress, NAME_None, TEXT("ResetCamera"));
+		}
+		else
+		{
+			// Timeline을 초기값으로 초기화합니다.
+			ResetCameraTimeline.SetFloatCurve(ResetCameraFloatCurve, TEXT("ResetCamera"));
+		}
+		
+		ResetCameraFloatCurve->GetTimeRange(CurveMinTime, CurveMaxTime);
+		ResetCameraTimeline.SetPlayRate(1.0f);
+		ResetCameraTimeline.SetTimelineLength(CurveMaxTime);
+	}
+}
+
+void APRPlayerCharacter::ActivateResetCamera()
+{
+	ResetCameraTimeline.PlayFromStart();
+}
+
+void APRPlayerCharacter::ActivateWorldCameraMonochrome(bool bActivate)
+{
+	if(GetFollowCamera() != nullptr)
+	{
+		
+		FPostProcessSettings NewPostProcessSettings = GetFollowCamera()->PostProcessSettings;
+		if(bActivate)
+		{
+			// 화면을 흑백으로 설정합니다.
+			NewPostProcessSettings.ColorSaturation = MonochromeColorSaturation;
+			NewPostProcessSettings.ColorGamma = MonochromeColorGamma;
+		}
+		else
+		{
+			// 화면을 원래대로 설정합니다.
+			NewPostProcessSettings.ColorSaturation = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+			NewPostProcessSettings.ColorGamma = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+		}
+		
+		// 변경된 설정을 적용합니다.
+		GetFollowCamera()->PostProcessSettings = NewPostProcessSettings;
+	}
+}
+
 void APRPlayerCharacter::Turn(float Value)
 {
-	if(TargetingSystem->IsLockOnTarget() == true && Value != 0.0f)
+	if(Value != 0.0f)
 	{
-		TargetingSystem->ChangeLockOnTargetForTurnValue(EPRInputMode::InputMode_Mouse, Value);
+		TargetingSystem->SetActivateDynamicCameraLock(false);
+
+		bTurnMoveCamera = true;
+		
+		if(TargetingSystem->IsActivateLockOnTarget() == true && bReadyToChangeTarget)
+		{
+			TargetingSystem->ChangeLockOnTargetForTurnValue(EPRInputMode::InputMode_Mouse, Value);
+		}
+		else
+		{
+			AddControllerYawInput(Value);
+		}
+
+		// AddControllerYawInput(Value);
 	}
 	else
 	{
-		AddControllerYawInput(Value);
+		bTurnMoveCamera = false;
 	}
 }
 
 void APRPlayerCharacter::LookUp(float Value)
 {
-	if(TargetingSystem->IsLockOnTarget() == false)
+	if(Value != 0.0f)
 	{
-		AddControllerPitchInput(Value);
+		TargetingSystem->SetActivateDynamicCameraLock(false);
+
+		bLookUpMoveCamera = true;
+		
+		if(!bReadyToChangeTarget)
+		{
+			AddControllerPitchInput(Value);
+		}
+		
+		// AddControllerPitchInput(Value);
+	}
+	else
+	{
+		bLookUpMoveCamera = false;
 	}
 }
 
 void APRPlayerCharacter::TurnRate(float Rate)
 {
-	if(TargetingSystem->IsLockOnTarget() == true && Rate != 0.0f)
+	if(Rate != 0.0f)
 	{
-		TargetingSystem->ChangeLockOnTargetForTurnValue(EPRInputMode::InputMode_Gamepad, Rate);		
+		TargetingSystem->SetActivateDynamicCameraLock(false);
+
+		bTurnRateMoveCamera = true;
+		
+		if(TargetingSystem->IsActivateLockOnTarget() == true && bReadyToChangeTarget)
+		{
+			TargetingSystem->ChangeLockOnTargetForTurnValue(EPRInputMode::InputMode_Gamepad, Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
+		}
+		else
+		{
+			AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
+		}
+
+		// AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
 	}
 	else
 	{
-		AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
+		bTurnRateMoveCamera = false;
 	}
 }
 
 void APRPlayerCharacter::LookUpRate(float Rate)
 {
-	if(TargetingSystem->IsLockOnTarget() == false)
+	if(Rate != 0.0f)
 	{
-		AddControllerPitchInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
-	}
-}
+		TargetingSystem->SetActivateDynamicCameraLock(false);
 
-void APRPlayerCharacter::InitializeCameraZoomOutTimeline()
-{
-	if(CameraZoomOutCurveFloat)
-	{
-		// Curve가 사용할 Callback 함수입니다.
-		FOnTimelineFloat TimelineProgress;
+		bLookUpRateMoveCamera = true;
+		
+		if(!bReadyToChangeTarget)
+		{
+			AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
+		}
 
-		// Callback 함수에서 사용할 함수를 바인딩합니다.
-		TimelineProgress.BindUFunction(this, FName("CameraZoomOut"));
-
-		// Timeline에 Curve를 추가합니다.
-		CameraZoomOutTimeline.AddInterpFloat(CameraZoomOutCurveFloat, TimelineProgress, NAME_None, TEXT("CameraZoomOut"));
-	}
-}
-
-void APRPlayerCharacter::CameraZoomOut(float Value)
-{
-	SpringArm->TargetArmLength = Value;
-}
-
-void APRPlayerCharacter::CameraZoomOutWhenSprint(bool bFlag)
-{
-	if(bFlag)
-	{
-		CameraZoomOutTimeline.Play();
+		// AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
 	}
 	else
 	{
-		CameraZoomOutTimeline.Reverse();
+		bLookUpRateMoveCamera = false;
+	}
+}
+
+void APRPlayerCharacter::ResetCamera(float Value)
+{
+	if(ResetCameraFloatCurve != nullptr)
+	{
+		const FRotator ControlRotation = FRotator(GetController()->GetControlRotation().Pitch, GetController()->GetControlRotation().Yaw, 0.0f);
+		const FRotator ResetCameraPositionArrowRotation = FRotator(ResetCameraPositionArrow->GetComponentRotation().Pitch, ResetCameraPositionArrow->GetComponentRotation().Yaw, 0.0f);
+		FRotator NewControlRotation = UKismetMathLibrary::REase(ControlRotation, ResetCameraPositionArrowRotation, Value, true, EEasingFunc::EaseInOut);
+		
+		GetController()->SetControlRotation(NewControlRotation);
 	}
 }
 #pragma endregion 
 
-#pragma region CharacterMovement
-void APRPlayerCharacter::RotateInputDirection(bool bIsReverse)
+#pragma region MovementInput
+bool APRPlayerCharacter::IsMoveInput() const
+{
+	return (GetMoveForward() != 0.0f || GetMoveRight() != 0.0f) ? true : false;
+}
+
+void APRPlayerCharacter::RotationInputDirection(bool bIsReverse)
 {
 	const float MoveForward = GetMoveForward();
 	const float MoveRight = GetMoveRight();
 	FVector InputVector = FVector(MoveForward, MoveRight, 0.0f);
-
+	
 	if(bIsReverse)
 	{
 		InputVector = FVector(MoveForward * -1.0f, MoveRight * -1.0f, 0.0f);
@@ -230,7 +393,6 @@ void APRPlayerCharacter::RotateInputDirection(bool bIsReverse)
 	{
 		InputDirectionYaw = InputRotator.Yaw + GetActorRotation().Yaw;
 	}
-	// 입력이 있을 경우 컨트롤러를 기준으로 회전합니다.
 	else
 	{
 		InputDirectionYaw = InputRotator.Yaw + GetControlRotation().Yaw;
@@ -240,412 +402,724 @@ void APRPlayerCharacter::RotateInputDirection(bool bIsReverse)
 	SetActorRotation(InputDirectionRotator);
 }
 
+void APRPlayerCharacter::RotationAutoTargetDirection()
+{
+	// LockOnTarget이 활성화 되고 이동 입력을 하지 않았을 경우 Target을 향해 캐릭터를 회전시킵니다.
+	if(GetTargetingSystem()->IsActivateLockOnTarget() == true && IsMoveInput() == false)
+	{
+		const float LookAtRotationYaw = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), GetTargetingSystem()->GetLockedOnTarget()->GetActorLocation()).Yaw;
+		SetActorRotation(FRotator(0.0f, LookAtRotationYaw, 0.0f));
+	}
+	// 캐릭터를 이동 입력 방향으로 회전시킵니다.
+	else
+	{
+		RotationInputDirection();
+	}
+}
+
 float APRPlayerCharacter::GetMoveForward() const
 {
-	return InputComponent->GetAxisValue("MoveForward");
+	return GetInputAxisValue("MoveForward");
 }
 
 float APRPlayerCharacter::GetMoveRight() const
 {
-	return InputComponent->GetAxisValue("MoveRight");
+	return GetInputAxisValue("MoveRight");
 }
 
-TTuple<float, float> APRPlayerCharacter::FixDiagonalGamepadValues(float NewForwardAxis, float NewRightAxis) const
+void APRPlayerCharacter::Jump()
 {
-	// 미세한 값을 1.0이나 -1.0으로 보정합니다.
-	const float ForwardAxis = NewForwardAxis * FMath::GetMappedRangeValueClamped(FVector2D(0.0f, 0.0f),
-																			FVector2D(1.0f, 1.2f), FMath::Abs(NewRightAxis));
-	const float RightAxis = NewRightAxis * FMath::GetMappedRangeValueClamped(FVector2D(0.0f, 0.0f),
-																		FVector2D(1.0f, 1.2f), FMath::Abs(NewForwardAxis));
+	Super::Jump();
 
-	const float FixForwardAxis = FMath::Clamp(ForwardAxis, -1.0f, 1.0f);
-	const float FixRightAxis = FMath::Clamp(RightAxis, -1.0f, 1.0f);
+	// 캐릭터가 지상에 있을 경우 현재 재생중인 PRAnimMontage를 정지합니다.
+	if(GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_Grounded) == true)
+	{
+		GetAnimSystem()->StopPRAnimMontage();
+	}
+	// PRAnimMontage 정지로 인한 State를 초기화합니다.
+	GetStateSystem()->SetActionable(EPRAction::Action_Move, true);
+	GetStateSystem()->SetActionable(EPRAction::Action_Attack, true);
+	GetStateSystem()->SetActionable(EPRAction::Action_Dodge, true);
+	// GetWeaponSystem()->SetEquippedWeaponGroupAttackPRAnimMontageIndex(0);
 
-	return MakeTuple(FixForwardAxis, FixRightAxis);
+	// 현재 사용하는 무기가 발도 상태면 무기를 납도합니다.
+	if(IsValid(GetWeaponSystem()->GetEquippedWeapon()) == true && GetWeaponSystem()->GetEquippedWeapon()->IsDraw() == true)
+	{
+		GetWeaponSystem()->GetEquippedWeapon()->Sheath();
+	}
+
+	// 일반 공격 Index를 초기화합니다.
+	InitializePlayNormalAttackIndex();
+	
+	if(GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_InAir) == true
+		&& GetStateSystem()->IsActionable(EPRAction::Action_DoubleJump) == true)
+	{
+		DoubleJump();
+	}
 }
 
-TTuple<FVector, FVector> APRPlayerCharacter::GetControlForwardRightVector() const
+void APRPlayerCharacter::StopJumping()
+{
+	Super::StopJumping();	
+}
+
+void APRPlayerCharacter::DoubleJump()
+{;
+	// bDoubleJumpable = false;
+	GetStateSystem()->SetActionable(EPRAction::Action_DoubleJump, false);
+	GetStateSystem()->SetCanCancelAction(false);
+
+	// 현재 사용하는 무기가 발도 상태면 무기를 납도합니다.
+	if(IsValid(GetWeaponSystem()->GetEquippedWeapon()) == true && GetWeaponSystem()->GetEquippedWeapon()->IsDraw() == true)
+	{
+		GetWeaponSystem()->GetEquippedWeapon()->Sheath();
+	}
+
+	// 일반 공격 Index를 초기화합니다.
+	InitializePlayNormalAttackIndex();
+	
+	const float CurrentSpeed = GetVelocity().Size2D() * 0.8f;		// 떨어지는 속도는 제외합니다.
+	const float MoveForward = GetMoveForward();
+	const float MoveRight = GetMoveRight();
+	FVector ForwardVector = FVector::ZeroVector;
+	FVector RightVector = FVector::ZeroVector;
+	GetControlForwardVectorAndRightVector(ForwardVector, RightVector);
+	
+	GetMovementSystem()->ActivateAerial(true);
+	RotationInputDirection();
+	PlayAnimMontage(DoubleJumpAnimMontage);
+
+	// Effect Spawn
+	if(DoubleJumpNiagaraEffect)
+	{
+		// Z0 애니메이션이 없기 때문에 중앙을 나타내는 root 소켓의 XY값에 발의 높이(Z)를 더하여 사용하였습니다.
+		const FVector CenterLocation = GetMesh()->GetSocketLocation(FName("root"));
+		const FVector LeftFootLocation = GetMesh()->GetSocketLocation(FName("foot_l"));
+		const FVector RightFootLocation = GetMesh()->GetSocketLocation(FName("foot_r"));
+		const FVector NewSpawnEffectLocation = FVector(CenterLocation.X, CenterLocation.Y, UKismetMathLibrary::Min(LeftFootLocation.Z, RightFootLocation.Z));
+		UNiagaraComponent* SpawnNiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), DoubleJumpNiagaraEffect, NewSpawnEffectLocation);
+		SpawnNiagaraComponent->SetVariableLinearColor("EffectColor", SignatureEffectColor);
+
+		// Z0 애니메이션일 경우
+		// UNiagaraComponent* SpawnNiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), DoubleJumpNiagaraEffect, GetMesh()->GetSocketLocation(FName("root")));
+	}
+
+	const FVector NewForwardVector = (ForwardVector * MoveForward).GetSafeNormal() * CurrentSpeed;
+	const FVector NewRightVector = (RightVector * MoveRight).GetSafeNormal() * CurrentSpeed;
+	const FVector Velocity = NewForwardVector + NewRightVector + FVector(0.0f, 0.0f, GetCharacterMovement()->JumpZVelocity);
+	LaunchCharacter(Velocity, true, true);
+	GetMovementSystem()->SetInitializeSpeedWhenJump(true);
+	GetMovementSystem()->ActivateAerial(false);
+	GetStateSystem()->SetActionable(EPRAction::Action_Dodge, true);
+}
+
+void APRPlayerCharacter::MoveForward(float Value)
+{
+	if(Controller != nullptr && Value != 0.0f && GetStateSystem()->IsActionable(EPRAction::Action_Move) == true)
+	{
+		if(GetAnimSystem()->IsPlayPRAnimMontage() == true && GetStateSystem()->IsCanCancelAction() == true)
+		{
+			GetAnimSystem()->StopPRAnimMontage();
+		}
+		
+		AddPlayerMovementInput(EPRDirection::Direction_Forward);
+	}
+}
+
+void APRPlayerCharacter::MoveRight(float Value)
+{
+	if(Controller != nullptr && Value != 0.0f && GetStateSystem()->IsActionable(EPRAction::Action_Move) == true)
+	{
+		if(GetAnimSystem()->IsPlayPRAnimMontage() == true && GetStateSystem()->IsCanCancelAction() == true)
+		{
+			GetAnimSystem()->StopPRAnimMontage();
+		}
+		
+		AddPlayerMovementInput(EPRDirection::Direction_Right);
+	}
+}
+
+void APRPlayerCharacter::FixDiagonalGamepadValues(float ForwardAxis, float RightAxis, float& FixForwardAxis, float& FixRightAxis) const
+{
+	const float NewForwardAxis = ForwardAxis * FMath::GetMappedRangeValueClamped(FVector2D(0.0f, 0.6f),
+																				FVector2D(1.0f, 1.2f),
+																				FMath::Abs(RightAxis));
+	const float NewRightAxis = RightAxis * FMath::GetMappedRangeValueClamped(FVector2D(0.0f, 0.6f),
+																			FVector2D(1.0f, 1.2f),
+																			FMath::Abs(ForwardAxis));
+
+	FixForwardAxis = FMath::Clamp(NewForwardAxis, -1.0f, 1.0f);
+	FixRightAxis = FMath::Clamp(NewRightAxis, -1.0f, 1.0f);
+}
+
+void APRPlayerCharacter::GetControlForwardVectorAndRightVector(FVector& ForwardVector, FVector& RightVector) const
 {
 	const FRotator NewControlRotation = FRotator(0.0f, GetControlRotation().Yaw, 0.0f);
-	const FVector ForwardVector = UKismetMathLibrary::GetForwardVector(NewControlRotation);
-	const FVector RightVector = UKismetMathLibrary::GetRightVector(NewControlRotation);
 	
-	return MakeTuple(ForwardVector, RightVector);
+	ForwardVector = UKismetMathLibrary::GetForwardVector(NewControlRotation);
+	RightVector = UKismetMathLibrary::GetRightVector(NewControlRotation);
 }
 
-void APRPlayerCharacter::AddPlayerMovementInput(EPRDirectionVector PRDirectionVector)
+void APRPlayerCharacter::AddPlayerMovementInput(EPRDirection Direction)
 {
-	if(MovementSystem->IsEqualMovementState(EPRMovementState::MovementState_Ground) == true
-		|| MovementSystem->IsEqualMovementState(EPRMovementState::MovementState_InAir) == true)
+	// 현재 사용하는 무기가 발도 상태면 무기를 납도합니다.
+	if(IsValid(GetWeaponSystem()->GetEquippedWeapon()) == true && GetWeaponSystem()->GetEquippedWeapon()->IsDraw() == true)
 	{
-		TTuple<FVector, FVector> ForwardRightVector = GetControlForwardRightVector();
-		const FVector ForwardVector = ForwardRightVector.Get<0>();
-		const FVector RightVector = ForwardRightVector.Get<1>();
+		GetWeaponSystem()->GetEquippedWeapon()->Sheath();
+	}
+	
+	FVector ForwardVector = FVector::ZeroVector;
+	FVector RightVector = FVector::ZeroVector;
+	GetControlForwardVectorAndRightVector(ForwardVector, RightVector);
 
-		TTuple<float, float> GamepadValues = FixDiagonalGamepadValues(GetMoveForward(), GetMoveRight());
-		const float MoveForward = GamepadValues.Get<0>();
-		const float MoveRight = GamepadValues.Get<1>();
+	float MoveForward = 0.0f;
+	float MoveRight = 0.0f;
+	FixDiagonalGamepadValues(GetMoveForward(), GetMoveRight(), MoveForward, MoveRight);
+	
+	switch(Direction)
+	{
+	case EPRDirection::Direction_Forward:
+		AddMovementInput(ForwardVector, MoveForward);
+		break;
+	case EPRDirection::Direction_Right:
+		AddMovementInput(RightVector, MoveRight);
+		break;
+	default:
+		break;
+	}
 
-		switch(PRDirectionVector)
+	// 입력값에 따라 Gait를 설정합니다.
+	if(bSprintInput == false)
+	{
+		// WalkToggleInput이 활성화 되었으면 입력값이 무엇이는 AllowedGait는 Walking으로 설정합니다.
+		if(bWalkToggleInput == true)
 		{
-		case EPRDirectionVector::DirectionVector_ForwardVector:
-			AddMovementInput(ForwardVector, MoveForward);
-			break;
-		case EPRDirectionVector::DirectionVector_RightVector:
-			AddMovementInput(RightVector, MoveRight);
-			break;
-		default:
-			break;
+			GetMovementSystem()->SetAllowedGait(EPRGait::Gait_Walking);
+			return;
+		}
+		
+		// 원의 방정식을 사용합니다.
+		// 원의 중심이 (a,b)이고 반지름의 길이가 r인 원의 방정식
+		// (x - a)^2 + (y - b)^2 = r^2
+		
+		float NewMoveForward = UKismetMathLibrary::Square(UKismetMathLibrary::Abs(MoveForward));
+		float NewMoveRight = UKismetMathLibrary::Square(UKismetMathLibrary::Abs(MoveRight));
+		if(MinRunInputAxis > UKismetMathLibrary::Sqrt(NewMoveForward + NewMoveRight))
+		{
+			GetMovementSystem()->SetAllowedGait(EPRGait::Gait_Walking);
+		}
+		else
+		{
+			GetMovementSystem()->SetAllowedGait(EPRGait::Gait_Running);
 		}
 	}
 }
 
 EPRDirection APRPlayerCharacter::GetMoveInputDirection() const
 {
-	const float MoveForward = InputComponent->GetAxisValue("MoveForward");
-	const float MoveRight = InputComponent->GetAxisValue("MoveRight");
+	const float NewInputMoveForward = GetMoveForward();
+	const float NewInputMoveRight = GetMoveRight();
 	
-	if(MoveForward >= 0.0f)
+	if(NewInputMoveForward > 0.0f)
 	{
-		if(MoveRight == 0.0f)
+		if(NewInputMoveRight < 0.0f)
+		{
+			return EPRDirection::Direction_ForwardLeft;
+		}
+
+		if(NewInputMoveRight == 0.0f)
 		{
 			return EPRDirection::Direction_Forward;
 		}
-
-		if(MoveForward == 0.0f)
-		{
-			if(MoveRight > 0.0f)
-			{
-				return EPRDirection::Direction_Right;
-			}
-
-			return EPRDirection::Direction_Left;
-		}
-
-		if(MoveRight > 0.0f)
+		
+		if(NewInputMoveRight > 0.0f)
 		{
 			return EPRDirection::Direction_ForwardRight;
 		}
-
-		return EPRDirection::Direction_ForwardLeft;
 	}
 
-	if(MoveRight == 0.0f)
+	if(NewInputMoveForward == 0.0f)
 	{
-		return EPRDirection::Direction_Backward;
-	}
-
-	if(MoveRight > 0.0f)
-	{
-		return EPRDirection::Direction_BackwardRight;
-	}
-
-	return EPRDirection::Direction_BackwardLeft;
-}
-
-void APRPlayerCharacter::ToggleWalkRun()
-{
-	switch(MovementSystem->GetAllowedGait())
-	{
-	case EPRGait::Gait_Walking:
-		MovementSystem->SetAllowedGait(EPRGait::Gait_Running);
-		break;
-	case EPRGait::Gait_Running:
-		MovementSystem->SetAllowedGait(EPRGait::Gait_Walking);
-		break;
-	default:
-		break;			
-	}
-}
-
-void APRPlayerCharacter::Jump()
-{
-	if(bIsDoubleJump)
-	{
-		return;
-	}
-
-	if(WeaponSystem->IsDrawWeapons() == true)
-	{
-		WeaponSystem->SheathWeapons(true);
-	}
-
-	if(MovementSystem->IsEqualMovementState(EPRMovementState::MovementState_InAir) == false)
-	{
-		ACharacter::Jump();
-	}
-	else if(bCanDoubleJump)
-	{
-		DoubleJump();
-	}
-}
-
-void APRPlayerCharacter::DoubleJump()
-{
-	bIsDoubleJump = true;
-	bCanDoubleJump = false;
-	StateSystem->SetCanMove(true);
-	StateSystem->SetOnDodge(false);
-	
-	const float CurrentSpeed = MovementSystem->GetSpeed() * 0.8f;
-	const float MoveForward = GetMoveForward();
-	const float MoveRight = GetMoveRight();
-	TTuple<FVector, FVector> ForwardRightVector = GetControlForwardRightVector();
-
-	MovementSystem->ExecuteAerial(true);
-	RotateInputDirection();
-	PlayAnimMontage(DoubleJumpAnimMontage);
-	ExecuteDoubleJumpNiagaraEffect();
-	
-	const FVector NewForwardVector = ForwardRightVector.Get<0>() * MoveForward * CurrentSpeed;
-	const FVector NewRightVector = ForwardRightVector.Get<1>() * MoveRight * CurrentSpeed;
-
-	const FVector DirectionVector = NewForwardVector + NewRightVector + FVector(0.0f, 0.0f, DoubleJumpVelocity);
-	LaunchCharacter(DirectionVector, false, false);
-	MovementSystem->ExecuteAerial(false);
-}
-
-void APRPlayerCharacter::ExecuteDoubleJumpNiagaraEffect()
-{
-	if(DoubleJumpNiagaraEffect)
-	{
-		UNiagaraComponent* SpawnNiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), DoubleJumpNiagaraEffect,
-																									GetMesh()->GetSocketLocation(DoubleJumpNiagaraEffectSpawnSocketName));
-		SpawnNiagaraComponent->SetVariableLinearColor("EffectLinearColor", DoubleJumpNiagaraEffectColor);
-	}
-}
-
-bool APRPlayerCharacter::IsDoubleJump() const
-{
-	return bIsDoubleJump;
-}
-
-void APRPlayerCharacter::MoveForward(float Value)
-{
-	if(Controller != nullptr && StateSystem->IsCanMove() == true)
-	{
-		if(FMath::Abs(Value) != 0.0f)
+		if(NewInputMoveRight < 0.0f)
 		{
-			if(!bIsDoubleJump)
-			{
-				AnimSystem->StopPRAnimMontage();
-				StateSystem->SetOnAttack(false);
-				StateSystem->SetOnDodge(false);
-			}
-
-			if(WeaponSystem->IsDrawWeapons() == true)
-			{
-				WeaponSystem->SheathWeapons(true);
-			}
+			return EPRDirection::Direction_Left;
 		}
 		
-		AddPlayerMovementInput(EPRDirectionVector::DirectionVector_ForwardVector);
-	}
-}
-
-void APRPlayerCharacter::MoveRight(float Value)
-{
-	if(Controller != nullptr && StateSystem->IsCanMove() == true)
-	{
-		if(FMath::Abs(Value) != 0.0f)
+		if(NewInputMoveRight > 0.0f)
 		{
-			if(!bIsDoubleJump)
-			{
-				AnimSystem->StopPRAnimMontage();
-				StateSystem->SetOnAttack(false);
-				StateSystem->SetOnDodge(false);
-			}
+			return EPRDirection::Direction_Right;
+		}
+	}
 
-			if(WeaponSystem->IsDrawWeapons() == true)
-			{
-				WeaponSystem->SheathWeapons(true);
-			}
+	if(NewInputMoveForward < 0.0f)
+	{
+		if(NewInputMoveRight < 0.0f)
+		{
+			return EPRDirection::Direction_BackwardLeft;
+		}
+
+		if(NewInputMoveRight == 0.0f)
+		{
+			return EPRDirection::Direction_Backward;
 		}
 		
-		AddPlayerMovementInput(EPRDirectionVector::DirectionVector_RightVector);
+		if(NewInputMoveRight > 0.0f)
+		{
+			return EPRDirection::Direction_BackwardRight;
+		}
+	}
+
+	return EPRDirection::Direction_None;
+}
+
+void APRPlayerCharacter::Sprint(bool bNewSprintInput)
+{
+	bWalkToggleInput = false;
+	bSprintInput = bNewSprintInput;
+	if(bSprintInput)
+	{
+		GetMovementSystem()->SetAllowedGait(EPRGait::Gait_Sprinting);
 	}
 }
-#pragma endregion
 
-#pragma region WeaponSystem
-void APRPlayerCharacter::SwapWeapon()
+void APRPlayerCharacter::Walk()
 {
-	WeaponSystem->SwapWeapons();
-}
-#pragma endregion 
-
-#pragma region TargetingSystem
-void APRPlayerCharacter::ExecuteLockOnTarget()
-{
-	if(TargetingSystem->IsLockOnTarget() == false)
+	if(bWalkToggleInput == true)
 	{
-		TargetingSystem->ExecuteLockOnTarget();
+		bWalkToggleInput = false;
 	}
 	else
 	{
-		TargetingSystem->CancelLockOnTarget();
+		bWalkToggleInput = true;
 	}
 }
 #pragma endregion
 
-#pragma region Effect
-APRGhostTrail* APRPlayerCharacter::GetGhostTrail()
+#pragma region Interact
+void APRPlayerCharacter::AddToInteractableObjects(AActor* NewInteractableObject)
 {
-	int32 Index = 0;
-	for(APRGhostTrail* PoolingGhostTrail : GhostTrailObjectPool)
+	// PRInteractInteractInterface를 상속하고 있는지 확인합니다.
+	if(NewInteractableObject->GetClass()->ImplementsInterface(UPRInteractInterface::StaticClass()) == true)
 	{
-		if(PoolingGhostTrail->IsHidden() == true)
+		InteractableObjects.AddUnique(NewInteractableObject);
+
+		// InteractWidget에서 NewInteractableObject에 해당하는 상호작용 위젯을 추가합니다.
+		APRPlayerController* PRPlayerController = Cast<APRPlayerController>(GetController());
+		if(PRPlayerController != nullptr)
 		{
-			return PoolingGhostTrail;
+			PRPlayerController->GetInGameHUD()->GetInteractWidget()->AddToInteractList(NewInteractableObject);
 		}
+	}
+}
 
-		Index++;
+void APRPlayerCharacter::RemoveToInteractableObjects(AActor* NewInteractableObject)
+{
+	InteractableObjects.Remove(NewInteractableObject);
 
-		if(GhostTrailObjectPool.Num() == Index)
+	if(SelectInteractIndex - 1 < 0)
+	{
+		SelectInteractIndex = 0;
+	}
+	else
+	{
+		SelectInteractIndex--;
+	}
+
+	// InteractWidget에서 NewInteractableObject에 해당하는 상호작용 위젯을 제거합니다.
+	APRPlayerController* PRPlayerController = Cast<APRPlayerController>(GetController());
+	if(PRPlayerController != nullptr)
+	{
+		PRPlayerController->GetInGameHUD()->GetInteractWidget()->SetSelectInteractIndex(SelectInteractIndex);
+		PRPlayerController->GetInGameHUD()->GetInteractWidget()->RemoveToInteractList(NewInteractableObject);
+	}
+}
+
+void APRPlayerCharacter::SelectInteraction(float Value)
+{
+	if(InteractableObjects.Num() == 0)
+	{
+		SelectInteractIndex = 0;
+		return;
+	}
+
+	if(bResetInteractInput)
+	{
+		// 목록의 아래로 선택
+		if(Value < 0.0f)
 		{
-			APRGhostTrail* NewGhostTrail = SpawnGhostTrail();
-			if(IsValid(NewGhostTrail) == true)
+			if(SelectInteractIndex + 1 == InteractableObjects.Num())
 			{
-				GhostTrailObjectPool.Add(NewGhostTrail);
-				return NewGhostTrail;
+				SelectInteractIndex = 0.0f;
 			}
-
-			return nullptr;
+			else
+			{
+				SelectInteractIndex++;
+			}
 		}
-	}
-
-	return nullptr;
-}
-
-// void APRPlayerCharacter::DisableGhostTrail(APRGhostTrail* EnableGhostTrail)
-// {
-// 	EnableGhostTrail->SetActorHiddenInGame(true);
-// }
-
-APRGhostTrail* APRPlayerCharacter::SpawnGhostTrail() const
-{
-	if(GhostTrail)
-	{
-		APRGhostTrail* NewGhostTrail = GetWorld()->SpawnActor<APRGhostTrail>(GhostTrail, GetMesh()->GetComponentTransform());
-		NewGhostTrail->SetActorHiddenInGame(true);
-		// NewGhostTrail->OnOpacityIsZeroDelegate.AddUFunction(this, FName("DisableGhostTrail"));
-
-		return NewGhostTrail;
-	}
-
-	return nullptr;
-}
-
-void APRPlayerCharacter::InitializeGhostTrailObjectPool(int32 SpawnCount)
-{
-	if(GhostTrail)
-	{
-		for(int32 Index = 0; Index < SpawnCount; Index++)
+		// 목록의 위로 선택
+		else if(Value > 0.0f)
 		{
-			GhostTrailObjectPool.Add(SpawnGhostTrail());
+			if(SelectInteractIndex - 1 < 0)
+			{
+				SelectInteractIndex = InteractableObjects.Num() - 1;
+			}
+			else
+			{
+				SelectInteractIndex--;
+			}
+		}
+
+		bResetInteractInput = false;
+	}
+
+	// 중복을 방지하기 위한 변수 설정
+	if(Value == 0.0f)
+	{
+		bResetInteractInput = true;
+	}
+
+	// 선택한 Slot에 하이라이트를 적용합니다.
+	APRPlayerController* PRPlayerController = Cast<APRPlayerController>(GetController());
+	if(PRPlayerController != nullptr)
+	{
+		PRPlayerController->GetInGameHUD()->GetInteractWidget()->SetSelectInteractIndex(SelectInteractIndex);
+	}
+}
+
+void APRPlayerCharacter::ExecuteInteract()
+{
+	if(InteractableObjects.IsValidIndex(SelectInteractIndex) == true && IsValid(InteractableObjects[SelectInteractIndex]) == true)
+	{
+		if(InteractableObjects[SelectInteractIndex]->GetClass()->ImplementsInterface(UPRInteractInterface::StaticClass()) == true)
+		{
+			IPRInteractInterface::Execute_OnInteract(InteractableObjects[SelectInteractIndex]);
 		}
 	}
 }
 #pragma endregion
+
+#pragma region TargetingSystem
+void APRPlayerCharacter::ActivateLockOnTarget()
+{
+	if(GetTargetingSystem()->IsActivateLockOnTarget() == false)
+	{
+		GetTargetingSystem()->ActivateLockOnTarget();
+	}
+	else
+	{
+		GetTargetingSystem()->CancelLockOnTarget();
+	}
+}
+
+void APRPlayerCharacter::ReadyToChangeTarget(bool bIsReady)
+{
+	bReadyToChangeTarget = bIsReady;
+	TargetingSystem->SetActivateDynamicCameraLock(bIsReady);
+}
+#pragma endregion
+
+#pragma region EffectSystem
+
+#pragma endregion 
 
 #pragma region Dodge
 void APRPlayerCharacter::Dodge()
 {
-	if(StateSystem->IsCanDodge() == true && StateSystem->IsOnDodge() == false)
+	if(GetStateSystem()->IsActionable(EPRAction::Action_Dodge) == true
+		&& DodgePRAnimMontages.Num() != 0)
 	{
-		GetGhostTrail()->Execute(this, GetMesh()->GetComponentTransform());
-
-		StateSystem->SetCanMove(false);
-		StateSystem->SetOnDodge(true);
+		// 일반 공격 Index를 초기화합니다.
+		InitializePlayNormalAttackIndex();
 		
-		DodgeSystem->ExecuteDodge(GetMoveInputDirection());
+		// 현재 사용하는 무기가 발도 상태면 무기를 납도합니다.
+		if(IsValid(GetWeaponSystem()->GetEquippedWeapon()) == true && GetWeaponSystem()->GetEquippedWeapon()->IsDraw() == true)
+		{
+			GetWeaponSystem()->GetEquippedWeapon()->Sheath();
+		}
+		
+		GetStateSystem()->SetCanCancelAction(false);
+		GetStateSystem()->SetActionable(EPRAction::Action_Attack, false);
+		GetStateSystem()->SetActionable(EPRAction::Action_Dodge, false);
+
+		// 동작을 캔슬할 경우 잔상효과를 활성화합니다.
+		if(AfterImage != nullptr && GetAnimSystem()->IsPlayPRAnimMontage() == true)
+		{
+			// GetAfterImage()->Activate(GetMesh(), GetMesh()->GetComponentTransform());
+			ActivateAfterImage();
+		}
+
+		if(GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_InAir) == false)
+		{
+			if(IsMoveInput() == true)
+			{
+				RotationInputDirection();
+				GetAnimSystem()->PlayPRAnimMontage(*DodgePRAnimMontages.Find(*FString::FromInt(ForwardDodgePRAnimMontageID)), GetActorForwardVector());
+			}
+			else
+			{
+				GetAnimSystem()->PlayPRAnimMontage(*DodgePRAnimMontages.Find(*FString::FromInt(BackwardDodgePRAnimMontageID)), GetActorForwardVector() * -1.0f);
+			}
+		}
+		else
+		{
+			RotationInputDirection();
+			GetMovementSystem()->ActivateAerial(true);
+			GetAnimSystem()->PlayPRAnimMontage(*DodgePRAnimMontages.Find(*FString::FromInt(AerialForwardDodgePRAnimMontageID)), GetActorForwardVector());
+		}
 	}
 }
 #pragma endregion
 
-#pragma region Attack
-void APRPlayerCharacter::Attack()
+#pragma region Dodge/Sprint
+void APRPlayerCharacter::DodgeAndSprint(bool bNewSprintInput)
 {
-	if(StateSystem->IsCanAttack() == true && GetCharacterMovement()->IsFalling() == false)
+	bWalkToggleInput = false;
+	bSprintInput = bNewSprintInput;
+	// if(bSprintInput)
+	// {
+	// 	if(GetWorld()->GetTimerManager().IsTimerActive(SprintTimerHandle) == false && GetMovementSystem()->IsEqualAllowedGait(EPRGait::Gait_Sprinting) == false)
+	// 	{
+	// 		GetWorld()->GetTimerManager().SetTimer(SprintTimerHandle, FTimerDelegate::CreateLambda([&]()
+	// 		{
+	// 			GetMovementSystem()->SetAllowedGait(EPRGait::Gait_Sprinting);
+	// 			
+	// 			GetWorld()->GetTimerManager().ClearTimer(SprintTimerHandle);
+	// 		}), SprintableHoldTime, false);
+	// 	}
+	// }
+	// else
+	// {
+	// 	if(GetMovementSystem()->IsEqualAllowedGait(EPRGait::Gait_Sprinting) == false)
+	// 	{
+	// 		Dodge();
+	// 	}
+	// 	
+	// 	if(GetWorld()->GetTimerManager().IsTimerActive(SprintTimerHandle) == true)
+	// 	{
+	// 		GetWorld()->GetTimerManager().ClearTimer(SprintTimerHandle);
+	// 	}	
+	// }
+
+	if(bSprintInput)
 	{
-		StateSystem->SetCanMove(false);
-		StateSystem->SetOnAttack(true);
-		StateSystem->SetOnDodge(false);
-		WeaponSystem->SetCanSwapWeapon(false);
-		
-		if(WeaponSystem->IsDrawWeapons() == false)
+		if(!bDodgeInput)
 		{
-			WeaponSystem->DrawWeapons();
-		}
-
-		if(TargetingSystem->IsLockOnTarget() == true)
-		{
-			const float LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), TargetingSystem->GetTarget()->GetActorLocation()).Yaw;
-			SetActorRotation(FRotator(0.0f, LookAtRotation, 0.0f));
-		}
-		else
-		{
-			RotateInputDirection();
+			bDodgeInput = true;
+			Dodge();
 		}
 		
-		AnimSystem->PlayPRAnimMontage(WeaponSystem->GetEquipWeapon(EPRWeaponEquipPosition::WeaponEquipPosition_Main)->GetWeaponPRAnimMontage());
-		WeaponSystem->GetEquipWeapon(EPRWeaponEquipPosition::WeaponEquipPosition_Main)->IncreaseWeaponPRAnimMontageIndex();
-	}
-	
-}
-#pragma endregion 
-
-#pragma region AttackOverlapCollision
-APROverlapCollision* APRPlayerCharacter::GetAttackOverlapCollision()
-{
-	int32 Index = 0;
-	for(APROverlapCollision* PoolingAttackOverlapCollision : AttackOverlapCollisionObjectPool)
-	{
-		if(PoolingAttackOverlapCollision->IsExecuteOverlap() == false)
+		if(GetWorld()->GetTimerManager().IsTimerActive(SprintTimerHandle) == false)
 		{
-			return PoolingAttackOverlapCollision;
-		}
-
-		Index++;
-
-		if(AttackOverlapCollisionObjectPool.Num() == Index)
-		{
-			APROverlapCollision* NewAttackOverlapCollision = SpawnAttackOverlapCollision();
-			if(IsValid(NewAttackOverlapCollision) == true)
+			GetWorld()->GetTimerManager().SetTimer(SprintTimerHandle, FTimerDelegate::CreateLambda([&]()
 			{
-				AttackOverlapCollisionObjectPool.Add(NewAttackOverlapCollision);
-				return NewAttackOverlapCollision;
-			}
-
-			return nullptr;
+				GetMovementSystem()->SetAllowedGait(EPRGait::Gait_Sprinting);
+				
+				GetWorld()->GetTimerManager().ClearTimer(SprintTimerHandle);
+			}), SprintableHoldTime, false);	
 		}
 	}
-
-	return nullptr;
-}
-
-APROverlapCollision* APRPlayerCharacter::SpawnAttackOverlapCollision()
-{
-	if(AttackOverlapCollision)
+	else
 	{
-		APROverlapCollision* NewAttackOverlapCollision = GetWorld()->SpawnActor<APROverlapCollision>(AttackOverlapCollision, GetMesh()->GetComponentTransform());
-		NewAttackOverlapCollision->InitializePROwner(this);
-		NewAttackOverlapCollision->DrawDebugOverlapCollision(bDrawDebugAttackOverlapCollision);
-	
-		return NewAttackOverlapCollision;
-	}
-
-	return nullptr;
-}
-
-void APRPlayerCharacter::InitializeAttackOverlapCollision(int32 SpawnCount)
-{
-	if(AttackOverlapCollision)
-	{
-		for(int32 Index = 0; Index < SpawnCount; Index++)
+		bDodgeInput = false;
+		
+		if(GetWorld()->GetTimerManager().IsTimerActive(SprintTimerHandle) == true)
 		{
-			AttackOverlapCollisionObjectPool.Add(SpawnAttackOverlapCollision());
+			GetWorld()->GetTimerManager().ClearTimer(SprintTimerHandle);
 		}
 	}
 }
 #pragma endregion 
+
+#pragma region CommandInput
+void APRPlayerCharacter::NormalAttack()
+{
+	// 캐릭터가 사망한 상태에서 실행하지 않습니다.
+	if(IsDead() == true)
+	{
+		return;
+	}
+}
+
+void APRPlayerCharacter::ChargedAttack(FKey Key)
+{
+	// 캐릭터가 사망한 상태에서 실행하지 않습니다.
+	if(IsDead() == true)
+	{
+		return;
+	}
+}
+#pragma endregion 
+
+#pragma region NormalAttack
+void APRPlayerCharacter::InitializePlayNormalAttackIndex()
+{
+}
+
+void APRPlayerCharacter::IncreasePlayNormalAttackIndex()
+{
+}
+#pragma endregion 
+
+#pragma region Effect
+void APRPlayerCharacter::ActivateAfterImage()
+{
+	GetAfterImage()->Activate(GetMesh(), GetMesh()->GetComponentTransform());
+}
+
+APRAfterImage* APRPlayerCharacter::GetAfterImage()
+{
+	// AfterImageObjectPool이 비어있으면 초기화합니다.
+	if(AfterImageObjectPool.Num() == 0)
+	{
+		InitializeAfterImageObjectPool(AfterImageInitSpawnCount);
+	}
+
+	// 비활성화된 AfterImage을 탐색 후 반환합니다.
+	for(int32 Index = 0; Index < AfterImageObjectPool.Num(); ++Index)
+	{
+		if(AfterImageObjectPool[Index]->IsActivate() == false)
+		{
+			return AfterImageObjectPool[Index];
+		}
+	}
+
+	// 비활성화된 AfterImage이 없을 경우 새로운 AfterImage을 생성하여 AfterImageObjectPool에 추가하고 반환합니다.
+	APRAfterImage* NewAfterImage = SpawnAfterImage();
+	if(IsValid(NewAfterImage) == true)
+	{
+		AfterImageObjectPool.AddUnique(NewAfterImage);
+
+		return NewAfterImage; 
+	}
+	
+	return nullptr;
+}
+
+APRAfterImage* APRPlayerCharacter::SpawnAfterImage() const
+{
+	if(AfterImage != nullptr)
+	{
+		APRAfterImage* NewAfterImage = GetWorld()->SpawnActor<APRAfterImage>(AfterImage, GetMesh()->GetComponentTransform());
+		NewAfterImage->SetActorHiddenInGame(true);
+
+		return NewAfterImage;
+	}
+	
+	return nullptr;
+}
+
+void APRPlayerCharacter::InitializeAfterImageObjectPool(int32 SpawnCount)
+{
+	AfterImageObjectPool.Empty();
+	
+	if(AfterImage != nullptr)
+	{
+		for(int32 Index = 0; Index < SpawnCount; ++Index)
+		{
+			AfterImageObjectPool.Add(SpawnAfterImage());
+		}
+	}
+}
+#pragma endregion 
+
+#pragma region SkillPalette
+void APRPlayerCharacter::ActivateBattleSkill(EPRCommandSkill NewPRCommandSkill)
+{
+	if(IsValid(GetSkillSystem()->GetSkillFromCommand(NewPRCommandSkill)) == true)
+	{
+		APRPlayerController* PRPlayerController = Cast<APRPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+		if(IsValid(PRPlayerController) == true)
+		{
+			if(PRPlayerController->IsGamepadInput() == true)
+			{
+				if(bIsOpenSkillPalette)
+				{
+					GetSkillSystem()->GetSkillFromCommand(NewPRCommandSkill)->ActivateSkill();
+				}
+			}
+			else
+			{
+				GetSkillSystem()->GetSkillFromCommand(NewPRCommandSkill)->ActivateSkill();
+			}
+		}
+	} 
+}
+
+void APRPlayerCharacter::OpenSkillPalette(bool bNewIsOpen)
+{
+	bIsOpenSkillPalette = bNewIsOpen;
+	if(OnOpenSkillPaletteDelegate.IsBound() == true)
+	{
+		OnOpenSkillPaletteDelegate.Broadcast(bNewIsOpen);
+	}
+}
+#pragma endregion 
+
+#pragma region ComboCount
+void APRPlayerCharacter::InitializeComboCount()
+{
+	APRPlayerController* PRPlayerController = Cast<APRPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if(PRPlayerController != nullptr)
+	{
+		if(PRPlayerController->GetInGameHUD()->GetComboCountWidget()->GetVisibility() == ESlateVisibility::Visible)
+		{
+			PRPlayerController->GetInGameHUD()->GetComboCountWidget()->SetVisibility(ESlateVisibility::Collapsed);
+		}
+
+		ComboCount = 0;
+
+		GetWorld()->GetTimerManager().ClearTimer(ComboCountTimerHandle);
+	}
+}
+
+void APRPlayerCharacter::UpdateComboCount()
+{
+	APRPlayerController* PRPlayerController = Cast<APRPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if(PRPlayerController != nullptr)
+	{
+		if(PRPlayerController->GetInGameHUD()->GetComboCountWidget()->GetVisibility() == ESlateVisibility::Collapsed)
+		{
+			PRPlayerController->GetInGameHUD()->GetComboCountWidget()->SetVisibility(ESlateVisibility::Visible);
+		}
+
+		ComboCount++;
+
+		// ComboCount가 최신화 되었으므로 ComboCountTimerHandle 타이머가 작동 중이면 타이머를 해제합니다.
+		if(GetWorld()->GetTimerManager().IsTimerActive(ComboCountTimerHandle) == true)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(ComboCountTimerHandle);
+		}
+
+		// ComboCount를 초기화하는 타이머를 실행합니다.
+		GetWorld()->GetTimerManager().SetTimer(ComboCountTimerHandle, this, &APRPlayerCharacter::InitializeComboCount, ComboCountResetTime, false);
+	}
+
+	if(OnComboCountChangedDelegate.IsBound() == true)
+	{
+		OnComboCountChangedDelegate.Broadcast(ComboCount);
+	}
+}
+
+float APRPlayerCharacter::GetComboCountResetTimeRatio() const
+{
+	if(GetWorld()->GetTimerManager().IsTimerActive(ComboCountTimerHandle) == false)
+	{
+		return 0.0f;
+	}
+	
+	// return FMath::Clamp((ComboCountResetTime - GetWorld()->GetTimerManager().GetTimerElapsed(ComboCountTimerHandle)) / ComboCountResetTime, 0.0f, 1.0f);
+	return FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ComboCountTimerHandle) / ComboCountResetTime, 0.0f, 1.0f);
+}
+#pragma endregion 
+
+#pragma region InGameHUD
+void APRPlayerCharacter::InitializeInGameHUD()
+{
+	APRPlayerController* PRPlayerController = Cast<APRPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+	if(IsValid(PRPlayerController) == true)
+	{
+		PRPlayerController->GetInGameHUD()->InitializeWidgets();
+	}
+}
+#pragma endregion 
+

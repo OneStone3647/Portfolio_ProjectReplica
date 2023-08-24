@@ -3,31 +3,54 @@
 
 #include "Components/PRStateSystemComponent.h"
 
+#include "Kismet/KismetStringLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
+
 UPRStateSystemComponent::UPRStateSystemComponent()
 {
-	// CharacterState
+	PrimaryComponentTick.bCanEverTick = true;
+
+	// Debug
+	bActivateDebug = false;
+
+	// TakeDamage
 	bIsHit = false;
 	bIsDead = false;
 	
-	// Move
-	bCanMove = true;
-
-	// Dodge
-	bCanDodge = true;
-	bOnDodge = false;
-
-	// Attack
-	bOnAttack = false;
+	// CharacterState
+	bCanCancelAction = false;
+	InitializeActionState();
+	// bMoveable = true;
+	// bDodgeable = true;
+	// bAttackable = false;
+	// bDodgeAttackable = false;
 }
 
+void UPRStateSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	UpdateDebug();
+}
+
+#pragma region Debug
+void UPRStateSystemComponent::UpdateDebug()
+{
+	if(bActivateDebug)
+	{
+		// UKismetSystemLibrary::PrintString(GetWorld(), "DodgeAttackable: " + UKismetStringLibrary::Conv_BoolToString(bDodgeAttackable), true, false, FLinearColor::Red, 0.0f);
+		// UKismetSystemLibrary::PrintString(GetWorld(), "Attackable: " + UKismetStringLibrary::Conv_BoolToString(bAttackable), true, false, FLinearColor::Red, 0.0f);
+		// UKismetSystemLibrary::PrintString(GetWorld(), "Dodgeable: " + UKismetStringLibrary::Conv_BoolToString(bDodgeable), true, false, FLinearColor::Red, 0.0f);
+		// UKismetSystemLibrary::PrintString(GetWorld(), "Moveable: " + UKismetStringLibrary::Conv_BoolToString(bMoveable), true, false, FLinearColor::Red, 0.0f);
+		UKismetSystemLibrary::PrintString(GetWorld(), "==StateSystem Debug==", true, false, FLinearColor::Green, 0.0f);
+	}
+}
+#pragma endregion 
+
+#pragma region TakeDamage
 bool UPRStateSystemComponent::IsHit() const
 {
 	return bIsHit;
-}
-
-void UPRStateSystemComponent::SetIsHit(bool bFlag)
-{
-	bIsHit = bFlag;
 }
 
 bool UPRStateSystemComponent::IsDead() const
@@ -35,58 +58,114 @@ bool UPRStateSystemComponent::IsDead() const
 	return bIsDead;
 }
 
-void UPRStateSystemComponent::SetIsDead(bool bFlag)
+void UPRStateSystemComponent::SetIsHit(bool bNewIsHit)
 {
-	bIsDead = bFlag;
+	bIsHit = bNewIsHit;
 }
 
-#pragma region Move
-bool UPRStateSystemComponent::IsCanMove() const
+void UPRStateSystemComponent::SetIsDead(bool bNewIsDead)
 {
-	return bCanMove;
-}
-
-void UPRStateSystemComponent::SetCanMove(bool bFlag)
-{
-	bCanMove = bFlag;
-}
-#pragma endregion 
-
-#pragma region Dodge
-bool UPRStateSystemComponent::IsCanDodge() const
-{
-	return bCanDodge;
-}
-
-bool UPRStateSystemComponent::IsOnDodge() const
-{
-	return bOnDodge;
-}
-
-void UPRStateSystemComponent::SetCanDodge(bool bFlag)
-{
-	bCanDodge = bFlag;
-}
-
-void UPRStateSystemComponent::SetOnDodge(bool bFlag)
-{
-	bOnDodge = bFlag;
+	bIsDead = bNewIsDead;
 }
 #pragma endregion
 
-#pragma region Attack
-bool UPRStateSystemComponent::IsCanAttack() const
+bool UPRStateSystemComponent::IsCanCancelAction() const
 {
-	return !bOnAttack && !(bIsHit || bIsDead || bOnDodge);
+	return bCanCancelAction;
 }
 
-bool UPRStateSystemComponent::IsOnAttack() const
+void UPRStateSystemComponent::InitializeActionState()
 {
-	return bOnAttack;
+	ActionState.Emplace(EPRAction::Action_Move, true);
+	ActionState.Emplace(EPRAction::Action_Dodge, true);
+	ActionState.Emplace(EPRAction::Action_DoubleJump, true);
+	ActionState.Emplace(EPRAction::Action_NormalAttack, false);
+	ActionState.Emplace(EPRAction::Action_FirstBattleSkill, false);
+	ActionState.Emplace(EPRAction::Action_SecondBattleSkill, false);
+	ActionState.Emplace(EPRAction::Action_ThirdBattleSkill, false);
+	ActionState.Emplace(EPRAction::Action_Ultimate, false);
+	ActionState.Emplace(EPRAction::Action_DodgeAttack, false);
 }
 
-void UPRStateSystemComponent::SetOnAttack(bool bFlag)
+bool UPRStateSystemComponent::IsActionable(EPRAction Action) const
 {
-	bOnAttack = bFlag;
+	if(ActionState.Find(Action) != nullptr)
+	{
+		return *ActionState.Find(Action);
+	}
+	
+	return false;
 }
-#pragma endregion 
+
+void UPRStateSystemComponent::SetActionable(EPRAction Action, bool bAble)
+{
+	ActionState.Emplace(Action, bAble);
+}
+
+void UPRStateSystemComponent::SetActionables(TMap<EPRAction, bool>& Actions)
+{
+	for(const auto& Action : Actions)
+	{
+		SetActionable(Action.Key, Action.Value);
+	}
+}
+
+// bool UPRStateSystemComponent::IsMoveable() const
+// {
+// 	return bMoveable;
+// }
+//
+// bool UPRStateSystemComponent::IsDodgeable() const
+// {
+// 	return bDodgeable;
+// }
+
+void UPRStateSystemComponent::SetDodgealbeAfterDelay(bool bNewDodgeable, float NewDelayTime)
+{
+	if(NewDelayTime <= 0.0f)
+	{
+		// SetDodgeable(bNewDodgeable);
+		SetActionable(EPRAction::Action_Dodge, bNewDodgeable);
+	}
+	else
+	{
+		// FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &UPRStateSystemComponent::SetDodgeable, bNewDodgeable);
+		FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &UPRStateSystemComponent::SetActionable, EPRAction::Action_Dodge, bNewDodgeable);
+		GetWorld()->GetTimerManager().SetTimer(DodgeableDelayTimerHandle, TimerDelegate, NewDelayTime, false);
+	}
+}
+
+void UPRStateSystemComponent::SetCanCancelAction(bool bNewCanCancelAction)
+{
+	bCanCancelAction = bNewCanCancelAction;
+}
+
+// bool UPRStateSystemComponent::IsAttackable() const
+// {
+// 	return bAttackable;
+// }
+//
+// bool UPRStateSystemComponent::IsDodgeAttackable() const
+// {
+// 	return bDodgeAttackable;
+// }
+//
+// void UPRStateSystemComponent::SetMoveable(bool bNewMoveable)
+// {
+// 	bMoveable = bNewMoveable;
+// }
+//
+// void UPRStateSystemComponent::SetDodgeable(bool bNewDodgeable)
+// {
+// 	bDodgeable = bNewDodgeable;
+// }
+//
+// void UPRStateSystemComponent::SetAttackable(bool bNewAttackable)
+// {
+// 	bAttackable = bNewAttackable;
+// }
+//
+// void UPRStateSystemComponent::SetDodgeAttackable(bool bNewDodgeAttackable)
+// {
+// 	bDodgeAttackable = bNewDodgeAttackable;
+// }

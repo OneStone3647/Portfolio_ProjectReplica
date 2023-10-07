@@ -10,8 +10,11 @@
 
 UPRSkill_Kyle_DodgeAttack::UPRSkill_Kyle_DodgeAttack()
 {
+	// TickableGameObject
+	bTickable = true;
+	
 	// DodgeAttack
-	SkillDurationTime = 3.5f;
+	SkillDurationTime = 2.5f;
 	SkillGauge = 70.0f;
 	SkillGaugeCost = 10.0f;
 	MinSkillGauge = 0.0f;
@@ -120,14 +123,8 @@ void UPRSkill_Kyle_DodgeAttack::SetActivateSkill(bool bNewActivateSkill)
 	else
 	{
 		GetSkillOwner()->GetStateSystem()->SetActionable(EPRAction::Action_DodgeAttack, false);
+		EndDurationEffect();
 	}
 	
 	InitializeSkill();
-}
-
-void UPRSkill_Kyle_DodgeAttack::EndDurationEffect()
-{
-	Super::EndDurationEffect();
-
-	SetActivateSkill(false);
 }

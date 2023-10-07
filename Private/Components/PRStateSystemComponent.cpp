@@ -16,6 +16,7 @@ UPRStateSystemComponent::UPRStateSystemComponent()
 	// TakeDamage
 	bIsHit = false;
 	bIsDead = false;
+	bIsInvincible = false;
 	
 	// CharacterState
 	bCanCancelAction = false;
@@ -58,6 +59,11 @@ bool UPRStateSystemComponent::IsDead() const
 	return bIsDead;
 }
 
+bool UPRStateSystemComponent::IsInvincible() const
+{
+	return bIsInvincible;
+}
+
 void UPRStateSystemComponent::SetIsHit(bool bNewIsHit)
 {
 	bIsHit = bNewIsHit;
@@ -66,6 +72,11 @@ void UPRStateSystemComponent::SetIsHit(bool bNewIsHit)
 void UPRStateSystemComponent::SetIsDead(bool bNewIsDead)
 {
 	bIsDead = bNewIsDead;
+}
+
+void UPRStateSystemComponent::SetIsInvincible(bool bNewIsInvincible)
+{
+	bIsInvincible = bNewIsInvincible;
 }
 #pragma endregion
 
@@ -110,16 +121,6 @@ void UPRStateSystemComponent::SetActionables(TMap<EPRAction, bool>& Actions)
 	}
 }
 
-// bool UPRStateSystemComponent::IsMoveable() const
-// {
-// 	return bMoveable;
-// }
-//
-// bool UPRStateSystemComponent::IsDodgeable() const
-// {
-// 	return bDodgeable;
-// }
-
 void UPRStateSystemComponent::SetDodgealbeAfterDelay(bool bNewDodgeable, float NewDelayTime)
 {
 	if(NewDelayTime <= 0.0f)
@@ -139,33 +140,3 @@ void UPRStateSystemComponent::SetCanCancelAction(bool bNewCanCancelAction)
 {
 	bCanCancelAction = bNewCanCancelAction;
 }
-
-// bool UPRStateSystemComponent::IsAttackable() const
-// {
-// 	return bAttackable;
-// }
-//
-// bool UPRStateSystemComponent::IsDodgeAttackable() const
-// {
-// 	return bDodgeAttackable;
-// }
-//
-// void UPRStateSystemComponent::SetMoveable(bool bNewMoveable)
-// {
-// 	bMoveable = bNewMoveable;
-// }
-//
-// void UPRStateSystemComponent::SetDodgeable(bool bNewDodgeable)
-// {
-// 	bDodgeable = bNewDodgeable;
-// }
-//
-// void UPRStateSystemComponent::SetAttackable(bool bNewAttackable)
-// {
-// 	bAttackable = bNewAttackable;
-// }
-//
-// void UPRStateSystemComponent::SetDodgeAttackable(bool bNewDodgeAttackable)
-// {
-// 	bDodgeAttackable = bNewDodgeAttackable;
-// }

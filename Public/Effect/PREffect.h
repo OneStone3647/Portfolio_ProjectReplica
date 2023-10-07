@@ -7,6 +7,7 @@
 #include "PREffect.generated.h"
 
 class UFXSystemAsset;
+class UFXSystemComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEffectDeactivate, UPREffect*, Effect);
 
@@ -26,9 +27,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "PREffect")
 	virtual void Initialize();
 
+	/** Effect를 최신화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PREffect")
+	virtual void UpdateEffect(float DeltaTime);
+
 	/** Effect의 활성화를 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PREffect")
-	bool IsActivate() const;
+	virtual bool IsActivate() const;
 
 	/** Effect를 활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PREffect")
@@ -53,6 +58,14 @@ public:
 	/** Effect의 위치를 반환하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PREffect")
 	virtual FVector GetEffectLocation() const;
+
+	/** FXSystemComponent을 반환하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PREffect")
+	virtual UFXSystemComponent* GetFXSystemComponent() const;
+
+	/** Effect가 반복되는 경우 true를 반환하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PREffect")
+	virtual bool IsLooping() const;
 
 private:
 	/** Effect의 활성화를 나타내는 변수입니다. */

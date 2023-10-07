@@ -21,10 +21,6 @@ struct FPRNiagaraEffectInfo : public FTableRowBase
 	GENERATED_BODY()
 
 public:
-	// /** Effect의 이름입니다. */
-	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PRNiagaraEffectInfo")
-	// FName EffectName;
-	
 	/** 생성할 NiagaraSystem입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PRNiagaraEffectInfo")
 	UNiagaraSystem* NiagaraSystem;
@@ -45,10 +41,6 @@ struct FPRParticleEffectInfo : public FTableRowBase
 	GENERATED_BODY()
 
 public:
-	// /** Effect의 이름입니다. */
-	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PRNiagaraEffectInfo")
-	// FName EffectName;
-	
 	/** 생성할 ParticleSystem입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PRParticleEffectInfo")
 	UParticleSystem* ParticleSystem;
@@ -62,17 +54,41 @@ public:
 	float Lifespan;	
 };
 
-/** Effect를 넣은 풀의 정보를 가진 구조체입니다. */
+/** NiagaraEffect를 넣은 풀의 정보를 가진 구조체입니다. */
 USTRUCT(Atomic, BlueprintType)
-struct FPREffectPool
+struct FPRNiagaraEffectPool
 {
 	GENERATED_BODY()
 
 public:
-	/** Effect를 넣은 풀입니다. */
+	/** NiagaraEffect를 넣은 풀입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PREffectPool")
-	TArray<class UPREffect*> Effects;
+	TArray<class UPRNiagaraEffect*> Effects;
 };
+
+/** ParticleEffect를 넣은 풀의 정보를 가진 구조체입니다. */
+USTRUCT(Atomic, BlueprintType)
+struct FPRParticleEffectPool
+{
+	GENERATED_BODY()
+
+public:
+	/** ParticleEffect를 넣은 풀입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PREffectPool")
+	TArray<class UPRParticleEffect*> Effects;
+};
+
+// /** Effect를 넣은 풀의 정보를 가진 구조체입니다. */
+// USTRUCT(Atomic, BlueprintType)
+// struct FPREffectPool
+// {
+// 	GENERATED_BODY()
+//
+// public:
+// 	/** Effect를 넣은 풀입니다. */
+// 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PREffectPool")
+// 	TArray<class UPREffect*> Effects;
+// };
 
 /** EffectPool의 활성화된 Effect의 Index 정보를 가진 구조체입니다. */
 USTRUCT(Atomic, BlueprintType)
@@ -100,6 +116,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void DestroyComponent(bool bPromoteChildren) override;
 
 public:
 	/** EffectSystem을 초기화하는 함수입니다. */
@@ -110,17 +127,37 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
 	void CreateEffectPool();
 
-	/** Effect를 지정한 위치에 Spawn하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
-	UPREffect* SpawnEffectAtLocation(UFXSystemAsset* SpawnEffect, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.0f), bool bEffectAutoActivate = true);
+	// /** Effect를 지정한 위치에 Spawn하는 함수입니다. */
+	// UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	// UPREffect* SpawnEffectAtLocation(UFXSystemAsset* SpawnEffect, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.0f), bool bEffectAutoActivate = true);
+	//
+	// /** Effect를 지정한 Component에 Spawn하여 부착하는 함수입니다. */
+	// UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	// UPREffect* SpawnEffectAttached(UFXSystemAsset* SpawnEffect, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bEffectAutoActivate = true);
 
-	/** Effect를 지정한 Component에 Spawn하여 부착하는 함수입니다. */
+	/** NiagaraEffect를 지정한 위치에 Spawn하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
-	UPREffect* SpawnEffectAttached(UFXSystemAsset* SpawnEffect, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bEffectAutoActivate = true);
+	UPRNiagaraEffect* SpawnNiagaraEffectAtLocation(UNiagaraSystem* SpawnEffect, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.0f), bool bEffectAutoActivate = true);
+
+	/** NiagaraEffect를 지정한 Component에 Spawn하여 부착하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	UPRNiagaraEffect* SpawnNiagaraEffectAttached(UNiagaraSystem* SpawnEffect, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bEffectAutoActivate = true);
+
+	/** ParticleEffect를 지정한 위치에 Spawn하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	UPRParticleEffect* SpawnParticleEffectAtLocation(UParticleSystem* SpawnEffect, FVector Location, FRotator Rotation = FRotator::ZeroRotator, FVector Scale = FVector(1.0f), bool bEffectAutoActivate = true);
+
+	/** ParticleEffect를 지정한 Component에 Spawn하여 부착하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	UPRParticleEffect* SpawnParticleEffectAttached(UParticleSystem* SpawnEffect, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bEffectAutoActivate = true);
 
 	/** 활성화된 Effect인지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
-	bool IsActivateEffect(UPREffect* Effect);
+	bool IsActivateEffect(UPREffect* Effect) const;
+
+	/** EffectPool에 존재하는 Effect인지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	bool IsValidEffectPool(UFXSystemAsset* FXSystemAsset) const;
 
 	/** 입력받은 인자를 바탕으로 NiagaraEffect를 생성하고 반환하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
@@ -132,24 +169,72 @@ public:
 	
 	/** 입력받은 인자를 바탕으로 NiagaraEffect를 Spawn하여 담은 풀을 반환하는 함수입니다.*/
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
-	FPREffectPool CreateNiagaraEffectPool(FPRNiagaraEffectInfo NiagaraEffectInfo);
+	FPRNiagaraEffectPool CreateNiagaraEffectPool(FPRNiagaraEffectInfo NiagaraEffectInfo);
 
 	/** 입력받은 인자를 바탕으로 ParticleEffect를 Spawn하여 담은 풀을 반환하는 함수입니다.*/
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
-	FPREffectPool CreateParticleEffectPool(FPRParticleEffectInfo ParticleEffectInfo);
+	FPRParticleEffectPool CreateParticleEffectPool(FPRParticleEffectInfo ParticleEffectInfo);
+
+	// /** 입력받은 인자를 바탕으로 NiagaraEffect를 Spawn하여 담은 풀을 반환하는 함수입니다.*/
+	// UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	// FPREffectPool CreateNiagaraEffectPool(FPRNiagaraEffectInfo NiagaraEffectInfo);
+	//
+	// /** 입력받은 인자를 바탕으로 ParticleEffect를 Spawn하여 담은 풀을 반환하는 함수입니다.*/
+	// UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	// FPREffectPool CreateParticleEffectPool(FPRParticleEffectInfo ParticleEffectInfo);
 
 	/** 인자로 받은 Effect를 비활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
 	void OnEffectDeactivate(UPREffect* DeactivateEffect);
 
-private:
-	/** Effect를 넣은 풀입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
-	TMap<UFXSystemAsset*, FPREffectPool> EffectPool;
+	/** Effect의 TimeDilation을 최신화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void UpdateEffectTimeDilation(float DeltaTime = 0.0f);
 
-	/** 활성화된 Effect의 Index입니다. */
+	/** Effect의 CustomDepth를 설정하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void SetEffectsCustomDepth(bool bNewRenderCustomDepth, int32 NewCustomDepthStencilValue);
+
+private:
+	// /** Effect를 넣은 풀입니다. */
+	// UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	// TMap<UFXSystemAsset*, FPREffectPool> EffectPool;
+	//
+	// /** 활성화된 Effect의 Index입니다. */
+	// UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	// TMap<UFXSystemAsset*, FPRActivateIndex> ActivatePoolIndexes;
+
+	/** NiagaraEffect를 넣은 풀입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
-	TMap<UFXSystemAsset*, FPRActivateIndex> ActivatePoolIndexes;
+	TMap<UNiagaraSystem*, FPRNiagaraEffectPool> NiagaraEffectPool;
+	
+	/** 활성화된 NiagaraEffect의 Index입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	TMap<UNiagaraSystem*, FPRActivateIndex> ActivateNiagaraEffectIndexes;
+	
+	/** ParticleEffect를 넣은 풀입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	TMap<UParticleSystem*, FPRParticleEffectPool> ParticleEffectPool;
+	
+	/** 활성화된 ParticleEffect의 Index입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	TMap<UParticleSystem*, FPRActivateIndex> ActivateParticleEffectIndexes;
+
+	/** TimeStop을 무시하고 Effect를 재생하는지 나타내는 변수입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	bool bIgnoreTimeStop;
+
+	/** TimeStop의 실행을 나타내는 변수입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	bool bActivateTimeStop;
+	
+public:
+	/** 입력받은 인자로 bIgnoreTimeStop을 설정하는 함수입니다. */
+	void SetIgnoreTimeStop(bool bNewIgnoreTimeStop);
+
+	/** 입력받은 인자로 bActivateTimeStop을 설정하는 함수입니다. */
+	UFUNCTION()
+	void SetActivateTimeStop(bool bNewActivateTimeStop);
 
 #pragma region DataTable
 private:

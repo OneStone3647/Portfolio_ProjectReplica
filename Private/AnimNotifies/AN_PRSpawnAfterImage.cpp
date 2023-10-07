@@ -19,7 +19,7 @@ void UAN_PRSpawnAfterImage::SpawnAfterImage(USkeletalMeshComponent* MeshComp)
 		APRPlayerCharacter* OwnerPRPlayerCharacter = Cast<APRPlayerCharacter>(MeshComp->GetOwner());
 		if(OwnerPRPlayerCharacter != nullptr)
 		{
-			OwnerPRPlayerCharacter->GetAfterImage()->Activate(MeshComp, MeshComp->GetComponentTransform());
+			OwnerPRPlayerCharacter->ActivateAfterImage();
 		}
 	}
 }

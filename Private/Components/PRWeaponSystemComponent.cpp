@@ -12,7 +12,6 @@ UPRWeaponSystemComponent::UPRWeaponSystemComponent()
 	WeaponInventory.Empty();
 	EquippedWeaponIndex = 0;
 	WeaponsToSpawn.Empty();
-	WeaponDataTable = nullptr;
 }
 
 void UPRWeaponSystemComponent::InitializeWeaponInventory()

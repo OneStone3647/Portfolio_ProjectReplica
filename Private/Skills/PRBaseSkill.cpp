@@ -19,10 +19,19 @@ UPRBaseSkill::UPRBaseSkill()
 	SkillInfo = FPRSkillInfo();
 	ActivateableCount = -1;
 	SkillOwner = nullptr;
+
+	// DurationEffect
+	bActivateDurationEffect = false;
+	DurationEffectRemaining = 0.0f;
+	DurationEffectElapsed = 0.0f;
 }
 
 void UPRBaseSkill::Tick(float DeltaTime)
 {
+	if(SkillInfo.bIgnoreTimeStop)
+	{
+		UpdateDurationEffect(DeltaTime);
+	}
 }
 
 bool UPRBaseSkill::IsTickable() const
@@ -188,22 +197,38 @@ void UPRBaseSkill::ActivateDuration()
 	// 지속효과를 실행합니다.
 	DurationEffect();
 
-	// 지속시간이 지난 후 효과를 종료합니다.
-	GetWorld()->GetTimerManager().SetTimer(DurationTimerHandle, FTimerDelegate::CreateLambda([&]()
+	// TimeStop에 영향을 받을 경우
+	if(SkillInfo.bIgnoreTimeStop == false)
 	{
-		EndDurationEffect();
+		// 지속시간이 지난 후 효과를 종료합니다.
+		GetWorld()->GetTimerManager().SetTimer(DurationTimerHandle, FTimerDelegate::CreateLambda([&]()
+		{
+			EndDurationEffect();
 		
-		GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
-	}), SkillInfo.Duration, false);
+			GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
+		}), SkillInfo.Duration, false);
+	}
 }
 
 float UPRBaseSkill::GetRemainingDurationEffect() const
 {
+	// TimeStop에 영향을 받지 않을 경우
+	if(SkillInfo.bIgnoreTimeStop)
+	{
+		return DurationEffectRemaining;
+	}
+	
 	return GetWorld()->GetTimerManager().GetTimerRemaining(DurationTimerHandle);
 }
 
 void UPRBaseSkill::DurationEffect()
 {
+	// TimeStop에 영향을 받지 않을 경우
+	if(SkillInfo.bIgnoreTimeStop)
+	{
+		bActivateDurationEffect = true;
+	}
+	
 	if(DurationSkillDelegate.IsBound() == true)
 	{
 		DurationSkillDelegate.Broadcast();
@@ -212,9 +237,32 @@ void UPRBaseSkill::DurationEffect()
 
 void UPRBaseSkill::EndDurationEffect()
 {
+	// TimeStop에 영향을 받지 않을 경우
+	if(SkillInfo.bIgnoreTimeStop)
+	{
+		bActivateDurationEffect = false;
+		DurationEffectElapsed = 0.0f;
+		DurationEffectRemaining = 0.0f;
+	}
+		
 	if(EndDurationSkillDelegate.IsBound() == true)
 	{
 		EndDurationSkillDelegate.Broadcast();
+	}
+}
+
+void UPRBaseSkill::UpdateDurationEffect(float DeltaTime)
+{
+	if(bActivateDurationEffect)
+	{
+		DurationEffectElapsed += DeltaTime;
+		DurationEffectRemaining = SkillInfo.Duration - DurationEffectElapsed;
+
+		// 지속시간이 지난 후 효과를 종료합니다.
+		if(DurationEffectElapsed >= SkillInfo.Duration)
+		{
+			EndDurationEffect();
+		}
 	}
 }
 #pragma endregion 

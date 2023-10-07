@@ -20,33 +20,35 @@ void APRPooledObject::BeginPlay()
 	
 }
 
+void APRPooledObject::UpdatePooledObject_Implementation(float DeltaTime)
+{
+}
+
 bool APRPooledObject::IsActivate() const
 {
 	return bActivate;
 }
 
-void APRPooledObject::SetActivate_Implementation(bool bIsActivate)
+void APRPooledObject::Activate_Implementation()
 {
-	bActivate = bIsActivate;
-	if(bIsActivate)
-	{
-		InitializeSpawnLocation();
-	}
-	SetActorHiddenInGame(!bIsActivate);
+	bActivate = true;
+	InitializeSpawnLocation();
+	SetActorHiddenInGame(!bActivate);
 	
 	// 오브젝트의 수명이 끝나면 오브젝트를 비활성화합니다.
-	GetWorldTimerManager().SetTimer(LifespanTimerHandle, this, &APRPooledObject::Deactivate, Lifespan, false);
+	GetWorldTimerManager().SetTimer(LifespanTimerHandle, this, &APRPooledObject::Deactivate_Implementation, Lifespan, false);
+}
+
+void APRPooledObject::Deactivate_Implementation()
+{
+	bActivate = false;
+	SetActorHiddenInGame(!bActivate);
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+	OnPooledObjectDeactivate.Broadcast(this);
 }
 
 void APRPooledObject::InitializePooledObject_Implementation()
 {
-}
-
-void APRPooledObject::Deactivate()
-{
-	SetActivate(false);
-	GetWorldTimerManager().ClearAllTimersForObject(this);
-	OnPooledObjectDeactivate.Broadcast(this);
 }
 
 void APRPooledObject::InitializeSpawnLocation_Implementation()

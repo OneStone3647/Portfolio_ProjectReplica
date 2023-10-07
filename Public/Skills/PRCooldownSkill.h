@@ -15,6 +15,14 @@ class PROJECTREPLICA_API UPRCooldownSkill : public UPRBaseSkill
 	GENERATED_BODY()
 
 public:
+	UPRCooldownSkill();
+
+#pragma region TickableGameObject
+public:
+	virtual void Tick(float DeltaTime) override;
+#pragma endregion 
+	
+public:
 	/**
 	 * 스킬을 실행하는 함수입니다.
 	 *
@@ -44,12 +52,27 @@ public:
 
 protected:
 	/** 재사용 대기시간이 끝나고 실행하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "BaseSkill")
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Cooldown")
 	void EndCoolDown();
 	virtual void EndCoolDown_Implementation();
+
+	/** bIgnoreTimeStop이 true일 때 재사용 대기시간을 최신화하는 함수입니다. */
+	void UpdateCooldown(float DeltaTime);
 
 protected:
 	/** 재사용 대기시간에 사용하는 TimerHandle입니다. */
 	FTimerHandle CooldownTimerHandle;
+
+	/** 재사용 대기시간의 실행을 나타내는 변수입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown")
+	bool bActivateCooldown;
+
+	/** 재사용 대기시간의 남은 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown", Transient)
+	float CooldownRemaining;
+
+	/** 재사용 대기시간의 경과 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown", Transient)
+	float CooldownElapsed;
 #pragma endregion
 };

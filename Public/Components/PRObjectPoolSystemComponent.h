@@ -110,6 +110,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void DestroyComponent(bool bPromoteChildren) override;
 
 public:
 	/** 인자로 받은 정보를 바탕으로 오브젝트 풀을 생성하는 함수입니다. */
@@ -141,6 +143,10 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
 	void InitializeObjectPool();
 
+	/** 오브젝트 풀의 TimeDilation을 최신화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
+	void UpdateObjectPoolsTimeDilation(float DeltaTime = 0.0f);
+
 protected:
 	/** 오브젝트 풀에 넣기 위한 오브젝트의 클래스의 정보를 가진 구조체를 보관한 Array입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ObjectPoolSystem")
@@ -153,4 +159,20 @@ protected:
 	/** 활성화한 오브젝트의 Index입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "ObjectPoolSystem")
 	TMap<FName, FPRPoolIndex> ActivatePoolIndexes;
+
+	/** TimeStop을 무시하고 Object를 실행하는지 나타내는 변수입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	bool bIgnoreTimeStop;
+
+	/** TimeStop의 실행을 나타내는 변수입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	bool bActivateTimeStop;
+
+public:
+	/** 입력받은 인자로 bIgnoreTimeStop을 설정하는 함수입니다. */
+	void SetIgnoreTimeStop(bool bNewIgnoreTimeStop);
+	
+	/** 입력받은 인자로 bActivateTimeStop을 설정하는 함수입니다. */
+	UFUNCTION()
+	void SetActivateTimeStop(bool bNewActivateTimeStop);
 };

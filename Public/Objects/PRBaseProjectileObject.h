@@ -82,12 +82,12 @@ protected:
 #pragma endregion 
 
 #pragma region PooledObject
-protected:
+public:
+	/** 오브젝트를 활성화하는 함수입니다. */
+	virtual void Activate_Implementation() override;
+	
 	/** 오브젝트를 비활성화하는 함수입니다. */
-	virtual void Deactivate() override;
-
-	/** 입력받은 인자로 오브젝트의 활성화를 설정하는 함수입니다. */
-	virtual void SetActivate_Implementation(bool bIsActivate) override;
+	virtual void Deactivate_Implementation() override;
 #pragma endregion 
 
 #pragma region ProjectileSetting

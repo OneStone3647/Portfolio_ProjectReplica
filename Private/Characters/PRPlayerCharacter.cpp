@@ -17,9 +17,9 @@
 #include "Camera/CameraComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "NiagaraComponent.h"
-#include "NiagaraFunctionLibrary.h"
 #include "PRPlayerController.h"
 #include "Components/ArrowComponent.h"
+#include "Effect/PRNiagaraEffect.h"
 #include "Interfaces/PRInteractInterface.h"
 #include "Kismet/GameplayStatics.h"
 #include "Widgets/PRComboCountWidget.h"
@@ -27,6 +27,7 @@
 #include "Widgets/PRInteractWidget.h"
 #include "Skills/PRBaseSkill.h"
 #include "Weapons/PRBaseWeapon.h"
+#include "Components/SphereComponent.h"
 
 APRPlayerCharacter::APRPlayerCharacter()
 {
@@ -70,8 +71,10 @@ APRPlayerCharacter::APRPlayerCharacter()
 	BaseTurnRate = 45.0f;
 	BaseLookUpRate = 45.0f;
 	ResetCameraFloatCurve = nullptr;
-	MonochromeColorSaturation = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
-	MonochromeColorGamma = FVector4(0.7f, 0.7f, 0.7f, 1.0f);
+	// MonochromeColorSaturation = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
+	// MonochromeColorGamma = FVector4(0.7f, 0.7f, 0.7f, 1.0f);
+	MonochromeFloatCurve = nullptr;
+	MonochromeMode = EPRCameraPostProcessMaterial::CameraPostProcessMaterial_None;
 
 	// MovementInput
 	DoubleJumpAnimMontage = nullptr;
@@ -82,12 +85,21 @@ APRPlayerCharacter::APRPlayerCharacter()
 	bDodgeInput = false;
 	SprintableHoldTime = 0.3f;
 
+	// ObjectPoolSystem
+	GetObjectPoolSystem()->SetIgnoreTimeStop(true);
+
 	// TargetingSystem
 	TargetingSystem = CreateDefaultSubobject<UPRTargetingSystemComponent>(TEXT("TargetingSystem"));
 	bReadyToChangeTarget = false;
 
 	// TimeStopSystem
 	TimeStopSystem = CreateDefaultSubobject<UPRTimeStopSystemComponent>(TEXT("TimeStopSystem"));
+
+	// Dodge
+	ExtremeDodgeArea = CreateDefaultSubobject<USphereComponent>(TEXT("ExtremeDodgeArea"));
+	ExtremeDodgeArea->SetCollisionProfileName("ExtremeDodgeArea");
+	ExtremeDodgeArea->SetupAttachment(RootComponent);
+	DeactivateExtremeDodgeArea();
 
 	// Interact
 	InteractableObjects.Empty();
@@ -96,17 +108,16 @@ APRPlayerCharacter::APRPlayerCharacter()
 	
 	// Effect
 	SignatureEffectColor = FLinearColor(20.0f, 15.0f, 200.0f, 1.0f);
+	// Effect|DoubleJump
 	DoubleJumpNiagaraEffect = nullptr;
 	
-	// AfterImage
-	AfterImage = nullptr;
-	AfterImageInitSpawnCount = 2;
-	AfterImageObjectPool.Empty();
-
 	// SkillPalette
 	bIsOpenSkillPalette = false;
 
 	// ComboCount
+	bActivateComboCount = false;
+	ComboCountResetRemaining = 0.0f;
+	ComboCountResetElapsed = 0.0f;
 	ComboCount = 0;
 	ComboCountResetTime = 3.0f;
 }
@@ -122,9 +133,7 @@ void APRPlayerCharacter::BeginPlay()
 
 	// Camera
 	InitializeResetCameraTimeline();
-
-	// ObjectPool
-	InitializeAfterImageObjectPool(AfterImageInitSpawnCount);
+	InitializeMonochromeModeTimeline();
 
 	// InGameHUD
 	// 컨트롤러에서 뷰포트에 위젯을 추가하는 것이 캐릭터의 BeginPlay보다 먼저 실행되므로
@@ -139,13 +148,27 @@ void APRPlayerCharacter::BeginPlay()
 	{
 		GetStateSystem()->SetActionable(EPRAction::Action_Attack, true);
 	}
+
+	// TimeStopSystem
+	// GetTimeStopSystem()->OnActivateTimeStop.AddDynamic(GetEffectSystem(), &UPREffectSystemComponent::SetActivateTimeStop);
+	// GetTimeStopSystem()->OnDeactivateTimeStop.AddDynamic(this, &APRPlayerCharacter::ActivateTimeStop);
+	// GetTimeStopSystem()->OnActivateTimeStop.AddDynamic(this, &APRPlayerCharacter::ActivateWorldCameraMonochrome);
+	GetTimeStopSystem()->OnDeactivateTimeStop.AddDynamic(this, &APRPlayerCharacter::DeactivateTimeStop);
+
+	//EffectSystem
+	GetEffectSystem()->SetIgnoreTimeStop(true);
 }
 
 void APRPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// Camera
 	ResetCameraTimeline.TickTimeline(DeltaTime);
+	MonochromeModeTimeline.TickTimeline(DeltaTime);
+
+	// ComboCount
+	UpdateComboCount(DeltaTime);
 }
 
 void APRPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -197,8 +220,17 @@ void APRPlayerCharacter::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
 
-	// bDoubleJumpable = true;
 	GetStateSystem()->SetActionable(EPRAction::Action_DoubleJump, true);
+}
+
+float APRPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,	AActor* DamageCauser)
+{
+	if(GetSkillSystem()->GetSkillFromCommand(EPRCommandSkill::CommandSkill_ExtremeDodge) != nullptr)
+	{
+		GetSkillSystem()->GetSkillFromCommand(EPRCommandSkill::CommandSkill_ExtremeDodge)->ActivateSkill();
+	}
+	
+	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 }
 
 #pragma region Camera
@@ -207,60 +239,112 @@ bool APRPlayerCharacter::IsMoveCamera() const
 	return bTurnMoveCamera || bLookUpMoveCamera || bTurnRateMoveCamera || bLookUpRateMoveCamera;
 }
 
-void APRPlayerCharacter::InitializeResetCameraTimeline()
-{
-	if(ResetCameraFloatCurve != nullptr)
-	{
-		float CurveMinTime = 0.0f;
-		float CurveMaxTime = 0.0f;
-
-		if(ResetCameraTimelineProgress.IsBound() == false)
-		{
-			// Callback 함수에서 사용할 함수를 바인딩합니다.
-			ResetCameraTimelineProgress.BindUFunction(this, FName("ResetCamera"));
-
-			// Timeline에 Curve를 추가합니다.
-			ResetCameraTimeline.AddInterpFloat(ResetCameraFloatCurve, ResetCameraTimelineProgress, NAME_None, TEXT("ResetCamera"));
-		}
-		else
-		{
-			// Timeline을 초기값으로 초기화합니다.
-			ResetCameraTimeline.SetFloatCurve(ResetCameraFloatCurve, TEXT("ResetCamera"));
-		}
-		
-		ResetCameraFloatCurve->GetTimeRange(CurveMinTime, CurveMaxTime);
-		ResetCameraTimeline.SetPlayRate(1.0f);
-		ResetCameraTimeline.SetTimelineLength(CurveMaxTime);
-	}
-}
-
 void APRPlayerCharacter::ActivateResetCamera()
 {
 	ResetCameraTimeline.PlayFromStart();
 }
 
-void APRPlayerCharacter::ActivateWorldCameraMonochrome(bool bActivate)
+// void APRPlayerCharacter::ActivateWorldCameraMonochrome(bool bActivate)
+// {
+// 	if(GetFollowCamera() != nullptr)
+// 	{
+// 		// 채도는 카메라의 포스트 프로세스 머티리얼에서 설정합니다.
+// 		FPostProcessSettings NewPostProcessSettings = GetFollowCamera()->PostProcessSettings;
+// 		if(bActivate)
+// 		{
+// 			// 화면을 흑백으로 설정합니다.
+// 			// NewPostProcessSettings.ColorSaturation = MonochromeColorSaturation;
+// 			// NewPostProcessSettings.ColorGamma = MonochromeColorGamma;
+//
+// 			for(auto& PostProcessMaterial : NewPostProcessSettings.WeightedBlendables.Array)
+// 			{
+// 				PostProcessMaterial.Weight = 1.0f;
+// 			}
+// 		}
+// 		else
+// 		{
+// 			// 화면을 원래대로 설정합니다.
+// 			// NewPostProcessSettings.ColorSaturation = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+// 			// NewPostProcessSettings.ColorGamma = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+//
+// 			for(auto& PostProcessMaterial : NewPostProcessSettings.WeightedBlendables.Array)
+// 			{
+// 				PostProcessMaterial.Weight = 0.0f;
+// 			}
+// 		}
+// 		
+// 		// 변경된 설정을 적용합니다.
+// 		GetFollowCamera()->PostProcessSettings = NewPostProcessSettings;
+// 	}
+// }
+//
+// void APRPlayerCharacter::ActivateWorldCameraMonochrome(EPRCameraPostProcessMaterial PostProcessMaterial, float Value)
+// {
+// }
+//
+// void APRPlayerCharacter::ActivateWorldCameraMonochromeLerp(EPRCameraPostProcessMaterial PostProcessMaterial, bool bReversePlay)
+// {
+// 	
+// }
+
+void APRPlayerCharacter::InitializeMonochromeMode()
+{
+	SetPostProcessMaterialWeight(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_TimeStop, 0.0f);
+	SetPostProcessMaterialWeight(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_BlackAndWhite, 0.0f);
+}
+
+void APRPlayerCharacter::SetPostProcessMaterialWeight(EPRCameraPostProcessMaterial CameraPostProcessMaterial, float Value)
 {
 	if(GetFollowCamera() != nullptr)
 	{
-		
+		int32 MaterialIndex = static_cast<int32>(CameraPostProcessMaterial);
 		FPostProcessSettings NewPostProcessSettings = GetFollowCamera()->PostProcessSettings;
-		if(bActivate)
+
+		// 설정할 PostProcessMaterial이 존재할 경우
+		if(NewPostProcessSettings.WeightedBlendables.Array.IsValidIndex(MaterialIndex) == true)
 		{
-			// 화면을 흑백으로 설정합니다.
-			NewPostProcessSettings.ColorSaturation = MonochromeColorSaturation;
-			NewPostProcessSettings.ColorGamma = MonochromeColorGamma;
+			NewPostProcessSettings.WeightedBlendables.Array[MaterialIndex].Weight = Value;
+
+			// 변경된 설정을 적용합니다.
+			GetFollowCamera()->PostProcessSettings = NewPostProcessSettings;
+		}
+	}
+}
+
+void APRPlayerCharacter::ActivateMonochromeMode(EPRCameraPostProcessMaterial CameraPostProcessMaterial, bool bUseLerp, bool bReverse)
+{
+	MonochromeMode = CameraPostProcessMaterial;
+	
+	// 선형보간을 사용하며 선형보간에 필요한 Curve가 존재할 떄
+	if(bUseLerp && MonochromeFloatCurve != nullptr)
+	{
+		if(bReverse)
+		{
+			MonochromeModeTimeline.ReverseFromEnd();
 		}
 		else
 		{
-			// 화면을 원래대로 설정합니다.
-			NewPostProcessSettings.ColorSaturation = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-			NewPostProcessSettings.ColorGamma = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+			MonochromeModeTimeline.PlayFromStart();
 		}
-		
-		// 변경된 설정을 적용합니다.
-		GetFollowCamera()->PostProcessSettings = NewPostProcessSettings;
 	}
+	// 선형보간을 사용하지 않거나 선형보간에 필요한 Curve가 존재하지 않을 때
+	else
+	{
+		if(bReverse)
+		{
+			SetPostProcessMaterialWeight(CameraPostProcessMaterial, 0.0f);
+		}
+		else
+		{
+			SetPostProcessMaterialWeight(CameraPostProcessMaterial, 1.0f);
+		}
+	}
+}
+
+void APRPlayerCharacter::DeactivateMonochromeMode(EPRCameraPostProcessMaterial CameraPostProcessMaterial)
+{
+	SetPostProcessMaterialWeight(CameraPostProcessMaterial, 0.0f);
+	MonochromeMode = EPRCameraPostProcessMaterial::CameraPostProcessMaterial_None;
 }
 
 void APRPlayerCharacter::Turn(float Value)
@@ -365,6 +449,65 @@ void APRPlayerCharacter::ResetCamera(float Value)
 		
 		GetController()->SetControlRotation(NewControlRotation);
 	}
+}
+
+void APRPlayerCharacter::InitializeResetCameraTimeline()
+{
+	if(ResetCameraFloatCurve != nullptr)
+	{
+		float CurveMinTime = 0.0f;
+		float CurveMaxTime = 0.0f;
+
+		if(ResetCameraTimelineProgress.IsBound() == false)
+		{
+			// Callback 함수에서 사용할 함수를 바인딩합니다.
+			ResetCameraTimelineProgress.BindUFunction(this, FName("ResetCamera"));
+
+			// Timeline에 Curve를 추가합니다.
+			ResetCameraTimeline.AddInterpFloat(ResetCameraFloatCurve, ResetCameraTimelineProgress, NAME_None, TEXT("ResetCamera"));
+		}
+		else
+		{
+			// Timeline을 초기값으로 초기화합니다.
+			ResetCameraTimeline.SetFloatCurve(ResetCameraFloatCurve, TEXT("ResetCamera"));
+		}
+		
+		ResetCameraFloatCurve->GetTimeRange(CurveMinTime, CurveMaxTime);
+		ResetCameraTimeline.SetPlayRate(1.0f);
+		ResetCameraTimeline.SetTimelineLength(CurveMaxTime);
+	}
+}
+
+void APRPlayerCharacter::InitializeMonochromeModeTimeline()
+{
+	if(MonochromeFloatCurve != nullptr)
+	{
+		float CurveMinTime = 0.0f;
+		float CurveMaxTime = 0.0f;
+
+		if(MonochromeModeTimelineProgress.IsBound() == false)
+		{
+			// Callback 함수에서 사용할 함수를 바인딩합니다.
+			MonochromeModeTimelineProgress.BindUFunction(this, FName("MonochromeModeLerp"));
+
+			// Timeline에 Curve를 추가합니다.
+			MonochromeModeTimeline.AddInterpFloat(MonochromeFloatCurve, MonochromeModeTimelineProgress, NAME_None, TEXT("MonochromeModeLerp"));
+		}
+		else
+		{
+			// Timeline을 초기값으로 초기화합니다.
+			MonochromeModeTimeline.SetFloatCurve(MonochromeFloatCurve, TEXT("MonochromeModeLerp"));
+		}
+		
+		MonochromeFloatCurve->GetTimeRange(CurveMinTime, CurveMaxTime);
+		MonochromeModeTimeline.SetPlayRate(1.0f);
+		MonochromeModeTimeline.SetTimelineLength(CurveMaxTime);
+	}
+}
+
+void APRPlayerCharacter::MonochromeModeLerp(float Value)
+{
+	SetPostProcessMaterialWeight(MonochromeMode, Value);
 }
 #pragma endregion 
 
@@ -497,8 +640,14 @@ void APRPlayerCharacter::DoubleJump()
 		const FVector LeftFootLocation = GetMesh()->GetSocketLocation(FName("foot_l"));
 		const FVector RightFootLocation = GetMesh()->GetSocketLocation(FName("foot_r"));
 		const FVector NewSpawnEffectLocation = FVector(CenterLocation.X, CenterLocation.Y, UKismetMathLibrary::Min(LeftFootLocation.Z, RightFootLocation.Z));
-		UNiagaraComponent* SpawnNiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), DoubleJumpNiagaraEffect, NewSpawnEffectLocation);
-		SpawnNiagaraComponent->SetVariableLinearColor("EffectColor", SignatureEffectColor);
+		// UNiagaraComponent* SpawnNiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), DoubleJumpNiagaraEffect, NewSpawnEffectLocation);
+		// SpawnNiagaraComponent->SetVariableLinearColor("EffectColor", SignatureEffectColor);
+
+		UPRNiagaraEffect* DoubleJumpEffect = GetEffectSystem()->SpawnNiagaraEffectAtLocation(DoubleJumpNiagaraEffect, NewSpawnEffectLocation);
+		if(DoubleJumpEffect != nullptr)
+		{
+			DoubleJumpEffect->GetNiagaraEffect()->SetVariableLinearColor("EffectColor", SignatureEffectColor);
+		}
 
 		// Z0 애니메이션일 경우
 		// UNiagaraComponent* SpawnNiagaraComponent = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), DoubleJumpNiagaraEffect, GetMesh()->GetSocketLocation(FName("root")));
@@ -695,6 +844,23 @@ void APRPlayerCharacter::Walk()
 }
 #pragma endregion
 
+#pragma region TimeStopSystem
+void APRPlayerCharacter::ActivateTimeStop(float TimeStopDuration)
+{
+	ActivateMonochromeMode(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_TimeStop, true, false);
+	GetEffectSystem()->SetActivateTimeStop(true);
+	GetObjectPoolSystem()->SetActivateTimeStop(true);
+	GetTimeStopSystem()->ActivateTimeStop(TimeStopDuration);
+}
+
+void APRPlayerCharacter::DeactivateTimeStop()
+{
+	ActivateMonochromeMode(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_TimeStop, true, true);
+	GetObjectPoolSystem()->SetActivateTimeStop(false);
+	GetEffectSystem()->SetActivateTimeStop(false);
+}
+#pragma endregion
+
 #pragma region Interact
 void APRPlayerCharacter::AddToInteractableObjects(AActor* NewInteractableObject)
 {
@@ -823,6 +989,16 @@ void APRPlayerCharacter::ReadyToChangeTarget(bool bIsReady)
 #pragma endregion 
 
 #pragma region Dodge
+void APRPlayerCharacter::ActivateExtremeDodgeArea()
+{
+	ExtremeDodgeArea->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+}
+
+void APRPlayerCharacter::DeactivateExtremeDodgeArea()
+{
+	ExtremeDodgeArea->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
 void APRPlayerCharacter::Dodge()
 {
 	if(GetStateSystem()->IsActionable(EPRAction::Action_Dodge) == true
@@ -840,9 +1016,10 @@ void APRPlayerCharacter::Dodge()
 		GetStateSystem()->SetCanCancelAction(false);
 		GetStateSystem()->SetActionable(EPRAction::Action_Attack, false);
 		GetStateSystem()->SetActionable(EPRAction::Action_Dodge, false);
+		GetStateSystem()->SetIsInvincible(true);
 
 		// 동작을 캔슬할 경우 잔상효과를 활성화합니다.
-		if(AfterImage != nullptr && GetAnimSystem()->IsPlayPRAnimMontage() == true)
+		if(GetAnimSystem()->IsPlayPRAnimMontage() == true)
 		{
 			// GetAfterImage()->Activate(GetMesh(), GetMesh()->GetComponentTransform());
 			ActivateAfterImage();
@@ -963,62 +1140,7 @@ void APRPlayerCharacter::IncreasePlayNormalAttackIndex()
 #pragma region Effect
 void APRPlayerCharacter::ActivateAfterImage()
 {
-	GetAfterImage()->Activate(GetMesh(), GetMesh()->GetComponentTransform());
-}
-
-APRAfterImage* APRPlayerCharacter::GetAfterImage()
-{
-	// AfterImageObjectPool이 비어있으면 초기화합니다.
-	if(AfterImageObjectPool.Num() == 0)
-	{
-		InitializeAfterImageObjectPool(AfterImageInitSpawnCount);
-	}
-
-	// 비활성화된 AfterImage을 탐색 후 반환합니다.
-	for(int32 Index = 0; Index < AfterImageObjectPool.Num(); ++Index)
-	{
-		if(AfterImageObjectPool[Index]->IsActivate() == false)
-		{
-			return AfterImageObjectPool[Index];
-		}
-	}
-
-	// 비활성화된 AfterImage이 없을 경우 새로운 AfterImage을 생성하여 AfterImageObjectPool에 추가하고 반환합니다.
-	APRAfterImage* NewAfterImage = SpawnAfterImage();
-	if(IsValid(NewAfterImage) == true)
-	{
-		AfterImageObjectPool.AddUnique(NewAfterImage);
-
-		return NewAfterImage; 
-	}
-	
-	return nullptr;
-}
-
-APRAfterImage* APRPlayerCharacter::SpawnAfterImage() const
-{
-	if(AfterImage != nullptr)
-	{
-		APRAfterImage* NewAfterImage = GetWorld()->SpawnActor<APRAfterImage>(AfterImage, GetMesh()->GetComponentTransform());
-		NewAfterImage->SetActorHiddenInGame(true);
-
-		return NewAfterImage;
-	}
-	
-	return nullptr;
-}
-
-void APRPlayerCharacter::InitializeAfterImageObjectPool(int32 SpawnCount)
-{
-	AfterImageObjectPool.Empty();
-	
-	if(AfterImage != nullptr)
-	{
-		for(int32 Index = 0; Index < SpawnCount; ++Index)
-		{
-			AfterImageObjectPool.Add(SpawnAfterImage());
-		}
-	}
+	GetObjectPoolSystem()->ActivatePooledObject("AfterImage");
 }
 #pragma endregion 
 
@@ -1066,13 +1188,16 @@ void APRPlayerCharacter::InitializeComboCount()
 			PRPlayerController->GetInGameHUD()->GetComboCountWidget()->SetVisibility(ESlateVisibility::Collapsed);
 		}
 
+		bActivateComboCount = false;
+		ComboCountResetRemaining = ComboCountResetTime;
+		ComboCountResetElapsed = 0.0f;
 		ComboCount = 0;
-
-		GetWorld()->GetTimerManager().ClearTimer(ComboCountTimerHandle);
+		
+		// GetWorld()->GetTimerManager().ClearTimer(ComboCountTimerHandle);
 	}
 }
 
-void APRPlayerCharacter::UpdateComboCount()
+void APRPlayerCharacter::ActivateComboCount()
 {
 	APRPlayerController* PRPlayerController = Cast<APRPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 	if(PRPlayerController != nullptr)
@@ -1082,16 +1207,20 @@ void APRPlayerCharacter::UpdateComboCount()
 			PRPlayerController->GetInGameHUD()->GetComboCountWidget()->SetVisibility(ESlateVisibility::Visible);
 		}
 
+		bActivateComboCount = true;
 		ComboCount++;
+		// ComboCount가 최신화 되었으므로 ComboCount의 초기화까지의 남은 시간과 ComboCount의 초기화 시간이 실행된 경과시간을 초기화합니다.
+		ComboCountResetRemaining = ComboCountResetTime;
+		ComboCountResetElapsed = 0.0f;
 
 		// ComboCount가 최신화 되었으므로 ComboCountTimerHandle 타이머가 작동 중이면 타이머를 해제합니다.
-		if(GetWorld()->GetTimerManager().IsTimerActive(ComboCountTimerHandle) == true)
-		{
-			GetWorld()->GetTimerManager().ClearTimer(ComboCountTimerHandle);
-		}
-
-		// ComboCount를 초기화하는 타이머를 실행합니다.
-		GetWorld()->GetTimerManager().SetTimer(ComboCountTimerHandle, this, &APRPlayerCharacter::InitializeComboCount, ComboCountResetTime, false);
+		// if(GetWorld()->GetTimerManager().IsTimerActive(ComboCountTimerHandle) == true)
+		// {
+		// 	GetWorld()->GetTimerManager().ClearTimer(ComboCountTimerHandle);
+		// }
+		//
+		// // ComboCount를 초기화하는 타이머를 실행합니다.
+		// GetWorld()->GetTimerManager().SetTimer(ComboCountTimerHandle, this, &APRPlayerCharacter::InitializeComboCount, ComboCountResetTime, false);
 	}
 
 	if(OnComboCountChangedDelegate.IsBound() == true)
@@ -1100,15 +1229,36 @@ void APRPlayerCharacter::UpdateComboCount()
 	}
 }
 
+void APRPlayerCharacter::UpdateComboCount(float DeltaTime)
+{
+	if(bActivateComboCount)
+	{
+		ComboCountResetElapsed += DeltaTime;
+		ComboCountResetRemaining = ComboCountResetTime - ComboCountResetElapsed;
+
+		// ComboCount 초기화 시간이 되었을 때
+		if(ComboCountResetElapsed >= ComboCountResetTime)
+		{
+			InitializeComboCount();
+		}
+	}
+}
+
 float APRPlayerCharacter::GetComboCountResetTimeRatio() const
 {
-	if(GetWorld()->GetTimerManager().IsTimerActive(ComboCountTimerHandle) == false)
+	// if(GetWorld()->GetTimerManager().IsTimerActive(ComboCountTimerHandle) == false)
+	// {
+	// 	return 0.0f;
+	// }
+	//
+	// return FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ComboCountTimerHandle) / ComboCountResetTime, 0.0f, 1.0f);
+
+	if(bActivateComboCount == false)
 	{
 		return 0.0f;
 	}
-	
-	// return FMath::Clamp((ComboCountResetTime - GetWorld()->GetTimerManager().GetTimerElapsed(ComboCountTimerHandle)) / ComboCountResetTime, 0.0f, 1.0f);
-	return FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ComboCountTimerHandle) / ComboCountResetTime, 0.0f, 1.0f);
+
+	return FMath::Clamp(ComboCountResetRemaining / ComboCountResetTime, 0.0f, 1.0f);
 }
 #pragma endregion 
 

@@ -16,6 +16,26 @@ void UPRParticleEffect::Initialize()
 	Deactivate();
 }
 
+void UPRParticleEffect::UpdateEffect(float DeltaTime)
+{
+	Super::UpdateEffect(DeltaTime);
+
+	if(ParticleEffect != nullptr && IsValid(GetEffectOwner()) == true)
+	{
+		ParticleEffect->CustomTimeDilation = GetEffectOwner()->CustomTimeDilation;
+	}
+}
+
+bool UPRParticleEffect::IsActivate() const
+{
+	if(ParticleEffect != nullptr)
+	{
+		return Super::IsActivate() && ParticleEffect->IsActive();
+	}
+
+	return false;
+}
+
 void UPRParticleEffect::Activate()
 {
 	Super::Activate();
@@ -32,6 +52,7 @@ void UPRParticleEffect::Deactivate()
 
 	if(ParticleEffect != nullptr)
 	{
+		ParticleEffect->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		ParticleEffect->Deactivate();
 	}
 }
@@ -46,10 +67,10 @@ void UPRParticleEffect::Destroy()
 
 void UPRParticleEffect::SpawnEffectAtLocation(FVector Location, FRotator Rotation, FVector Scale, bool bAutoActivate)
 {
-	Super::SpawnEffectAtLocation(Location, Rotation, Scale, bAutoActivate);
-
 	if(ParticleEffect != nullptr)
 	{
+		Activate();
+		
 		ParticleEffect->SetWorldLocationAndRotation(Location, Rotation);
 		ParticleEffect->SetRelativeScale3D(Scale);
 
@@ -62,14 +83,15 @@ void UPRParticleEffect::SpawnEffectAtLocation(FVector Location, FRotator Rotatio
 
 void UPRParticleEffect::SpawnEffectAttached(USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bAutoActivate)
 {
-	Super::SpawnEffectAttached(AttachToComponent, AttachPointName, Location, Rotation, Scale, LocationType, bAutoActivate);
-
 	if(ParticleEffect != nullptr && AttachToComponent != nullptr)
 	{
-		ParticleEffect->AttachToComponent(AttachToComponent, FAttachmentTransformRules::KeepRelativeTransform, AttachPointName);
+		Activate();
+		
+		const FAttachmentTransformRules AttachmentTransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepRelative, false);
+		ParticleEffect->AttachToComponent(AttachToComponent, AttachmentTransformRules, AttachPointName);
 		if (LocationType == EAttachLocation::KeepWorldPosition)
 		{
-			ParticleEffect->SetWorldLocationAndRotation(Location, Rotation);
+			ParticleEffect->SetWorldLocationAndRotation(AttachToComponent->GetSocketLocation(AttachPointName) + Location, AttachToComponent->GetSocketRotation(AttachPointName) + Rotation);
 		}
 		else
 		{
@@ -87,6 +109,21 @@ void UPRParticleEffect::SpawnEffectAttached(USceneComponent* AttachToComponent, 
 FVector UPRParticleEffect::GetEffectLocation() const
 {
 	return Super::GetEffectLocation();
+}
+
+UFXSystemComponent* UPRParticleEffect::GetFXSystemComponent() const
+{
+	return ParticleEffect;
+}
+
+bool UPRParticleEffect::IsLooping() const
+{
+	if(ParticleEffect != nullptr)
+	{
+		return ParticleEffect->Template->IsLooping();
+	}
+
+	return false;
 }
 
 UParticleSystemComponent* UPRParticleEffect::GetParticleEffect() const

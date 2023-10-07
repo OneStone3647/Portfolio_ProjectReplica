@@ -24,6 +24,7 @@ public:
 	 * WeaponInventory를 초기화하는 함수입니다.
 	 * WeaponDataTable의 정보를 바탕으로 무기를 월드에 Spawn하여 WeaponInventory에 보관합니다.
 	 */
+	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
 	void InitializeWeaponInventory();
 
 	/**
@@ -76,10 +77,6 @@ protected:
 	/** 스폰할 무기의 클래스 레퍼런스입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PRWeaponSystem")
 	TArray<TSubclassOf<class APRBaseWeapon>> WeaponsToSpawn;
-
-	/** 캐릭터가 사용할 무기들을 보관한 데이터 테이블입니다. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PRWeaponSystem")
-	UDataTable* WeaponDataTable;
 
 public:
 	/** WeaponInventory를 반환하는 함수입니다. */

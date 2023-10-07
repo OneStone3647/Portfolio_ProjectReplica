@@ -2,13 +2,17 @@
 
 
 #include "Characters/PRPlayerCharacter_Kyle.h"
+
+#include "NiagaraComponent.h"
 #include "PRPlayerController.h"
 #include "Components/PRAnimSystemComponent.h"
+#include "Components/PREffectSystemComponent.h"
 #include "Components/PRMovementSystemComponent.h"
 #include "Components/PRSkillSystemComponent.h"
 #include "Components/PRStateSystemComponent.h"
 #include "Components/PRTargetingSystemComponent.h"
 #include "Components/PRWeaponSystemComponent.h"
+#include "Effect/PRNiagaraEffect.h"
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"

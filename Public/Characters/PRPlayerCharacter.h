@@ -17,6 +17,7 @@ class APRAfterImage;
 class APRBaseInteractableObject;
 class APRBaseSkill;
 class UPRTestEffectSystemComponent;
+class USphereComponent;
 
 enum class EPRCommandSkill : uint8;
 
@@ -30,6 +31,14 @@ enum class EPRSkillPaletteSlot : uint8
 	SkillPaletteSlot_Up				UMETA(Display = "UpSlot"),
 	SkillPaletteSlot_Right			UMETA(Display = "RightSlot"),
 	SkillPaletteSlot_Down			UMETA(Display = "DownSlot")
+};
+
+UENUM(BlueprintType)
+enum class EPRCameraPostProcessMaterial : uint8
+{
+	CameraPostProcessMaterial_TimeStop			UMETA(Display = "TimeStop"),
+	CameraPostProcessMaterial_BlackAndWhite		UMETA(Display = "BlakcAndWhite"),
+	CameraPostProcessMaterial_None				UMETA(Display = "None")
 };
 
 /** UI 관련 Delegate */
@@ -53,6 +62,7 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void Landed(const FHitResult& Hit) override;
+	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 #pragma region Debug
 protected:
@@ -66,20 +76,50 @@ public:
 	/** 카메라가 움직이는지 나타내는 함수입니다. */
 	bool IsMoveCamera() const;
 
-	/** ResetCamera에 관련된 것을 초기화하는 함수입니다. */
-	void InitializeResetCameraTimeline();
-
 	/** 카메라의 위치를 초기화하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "Camera")
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
 	void ActivateResetCamera();
 	
+	// /**
+	//  * 입력받은 인자 값에 따라 월드를 흑백으로 설정합니다.
+	//  *
+	//  * @param bActivate true일 경우 월드를 흑백으로 false일 경우 원래대로 설정합니다.
+	//  */
+	// UFUNCTION(BlueprintCallable, Category = "Camera")
+	// void ActivateWorldCameraMonochrome(bool bActivate);
+	// void ActivateWorldCameraMonochrome(EPRPostProcessMaterial PostProcessMaterial, float Value);
+	// void ActivateWorldCameraMonochromeLerp(EPRPostProcessMaterial PostProcessMaterial, bool bReversePlay = false);
+
+	/** 카메라가 MonochromeMode에 사용하는 PostProcessMaterial을 초기화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	void InitializeMonochromeMode();
+
 	/**
-	 * 입력받은 인자 값에 따라 월드를 흑백으로 설정합니다.
+	 * 카메라가 사용하는 PostProcessMaterial의 Weight값을 설정하는 함수입니다.
 	 *
-	 * @param bActivate true일 경우 월드를 흑백으로 false일 경우 원래대로 설정합니다.
+	 * @param CameraPostProcessMaterial Weight 값을 설정할 카메라가 사용하는 PostProcessMaterial입니다.
+	 * @param Value 설정할 Weight 값입니다.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Camera")
-	void ActivateWorldCameraMonochrome(bool bActivate);
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	void SetPostProcessMaterialWeight(EPRCameraPostProcessMaterial CameraPostProcessMaterial, float Value);
+
+	/**
+	 * 카메라의 화면을 흑백으로 표현하는 함수입니다.
+	 *
+	 * @param CameraPostProcessMaterial 카메라의 화면을 흑백으로 설정할 PostProcessMaterial입니다.
+	 * @param bUseLerp Timeline을 사용하여 선형보간(Lerp)할지 나타내는 값입니다.
+	 * @param bReverse 역재생을 나타내는 값입니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	void ActivateMonochromeMode(EPRCameraPostProcessMaterial CameraPostProcessMaterial, bool bUseLerp, bool bReverse = false);
+
+	/**
+	 * 카메라의 화면을 흑백에서 원래대로 표현하는 함수입니다.
+	 * 
+     * @param CameraPostProcessMaterial 카메라의 화면을 흑백으로 설정했던 PostProcessMaterial입니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	void DeactivateMonochromeMode(EPRCameraPostProcessMaterial CameraPostProcessMaterial);
 	
 protected:
 	/**
@@ -117,6 +157,20 @@ protected:
 	 */
 	UFUNCTION()
 	void ResetCamera(float Value);
+
+	/** ResetCameraTimeline을 초기화하는 함수입니다. */
+	void InitializeResetCameraTimeline();
+
+	/** MonochromeModeTimeline을 초기화하는 함수입니다. */
+	void InitializeMonochromeModeTimeline();
+
+	/**
+	 * 카메라의 화면을 흑백으로 표현을 선형보간하는 함수입니다.
+	 *
+	 * @param Value Curve에 의해 받는 값입니다.
+	 */
+	UFUNCTION()
+	void MonochromeModeLerp(float Value);
 
 protected:
 	/** 캐릭터 뒤에 카메라를 배치하는 SpringArm입니다. */
@@ -169,13 +223,27 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCurveFloat* ResetCameraFloatCurve;
 
-	/** 화면을 흑백으로 나타내는 채도입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	FVector4 MonochromeColorSaturation;
+	// /** 화면을 흑백으로 나타내는 채도입니다. */
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
+	// FVector4 MonochromeColorSaturation;
+	//
+	// /** 화면을 흑백으로 나타내는 감마입니다. */
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
+	// FVector4 MonochromeColorGamma;
 
-	/** 화면을 흑백으로 나타내는 감마입니다. */
+	/** MonochromeModeTimeline가 사용할 Callback 함수입니다. */
+	FOnTimelineFloat MonochromeModeTimelineProgress;
+
+	/** MonoChromeMode를 설정할 때 사용하는 Timeline입니다. */
+	FTimeline MonochromeModeTimeline;
+
+	/** MonochromeModeTimeline에서 사용하는 FloatCurve입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	FVector4 MonochromeColorGamma;
+	UCurveFloat* MonochromeFloatCurve;
+
+	/** 카메라 화면의 흑백모드입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Camera")
+	EPRCameraPostProcessMaterial MonochromeMode;
 
 public:
 	/** FollowCamera를 반환하는 함수입니다. */
@@ -328,6 +396,15 @@ public:
 #pragma endregion
 
 #pragma region TimeStopSystem
+public:
+	/** TimeStop을 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
+	void ActivateTimeStop(float TimeStopDuration);
+
+	/** TimeStop을 중지하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
+	void DeactivateTimeStop();
+	
 private:
 	/** 플레이어 캐릭터를 제외한 일정범위 안에 존재하는 Actor들을 일시정지하는 TimeStop을 실행하는 ActorComponent 클래스입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeStopSystem", meta = (AllowPrivateAccess = "true"))
@@ -377,9 +454,30 @@ private:
 #pragma endregion 
 
 #pragma region Dodge
+public:
+	/** ExtremeDodgeArea 활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "Dodge")
+	void ActivateExtremeDodgeArea();
+
+	/** ExtremeDodgeArea 비활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "Dodge")
+	void DeactivateExtremeDodgeArea();
+	
 protected:
 	/** 회피를 실행하는 함수입니다. */
 	virtual void Dodge() override;
+
+private:
+	/** 극한 회피가 실행되는 범위입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dodge", meta = (AllowPrivateAccess = "true"))
+	USphereComponent* ExtremeDodgeArea;
+
+public:
+	/** 입력 받은 인자로 bExtremeDodge를 설정하는 함수입니다. */
+	void SetActivateExtremeDodge(bool bNewActivateExtremeDodge);
+
+	/** ExtremeDodgeArea 반환하는 함수입니다. */
+	USphereComponent* GetExtremeDodgeArea() const { return ExtremeDodgeArea; }
 #pragma endregion
 
 #pragma region Dodge/Sprint
@@ -417,49 +515,18 @@ public:
 	virtual void IncreasePlayNormalAttackIndex() override;
 #pragma endregion
 
-#pragma region Effect
-	// DubleJump
+#pragma region Effect|DoubleJump
 private:
 	/** 더블 점프할 때 사용하는 NiagaraSystem입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect|DoubleJump", meta = (AllowPrivateAccess = "true"))
 	UNiagaraSystem* DoubleJumpNiagaraEffect;
+#pragma endregion 
 
-	// AfterImage
+#pragma region Effect|AfterImage
 public:
 	/** AfterImage를 실행하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "Effect|AfterImage")
 	void ActivateAfterImage();
-	
-	/**
-	 * AfterImageObjectPool에서 비활성화 상태인 AfterImage을 반환하는 함수입니다.
-	 * 비활성화 상태인 AfterImage이 없을 경우 AfterImage을 새로 월드에 스폰하고 AfterImageObjectPool에 저장합니다.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Effect|AfterImage")
-	class APRAfterImage* GetAfterImage();
-
-private:
-	/** AfterImage을 비활성화 상태로 월드에 스폰하는 함수입니다. */
-	class APRAfterImage* SpawnAfterImage() const;
-
-	/**
-	 * 입력받은 인자만큼 AfterImage을 월드에 스폰하고 AfterImageObjectPool에 저장하는 함수입니다.
-	 * @param SpawnCount AfterImage을 월드에 스폰할 횟수입니다.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Effect|AfterImage")
-	void InitializeAfterImageObjectPool(int32 SpawnCount);
-
-private:
-	/** 캐릭터의 잔상(AfterImage)을 표현하는 Actor의 클래스 레퍼런스입니다. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effect|AfterImage", meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<class APRAfterImage> AfterImage;
-
-	/** AfterImage을 월드에 스폰하는 횟수입니다. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Effect|AfterImage", meta = (AllowPrivateAccess = "true"))
-	int32 AfterImageInitSpawnCount;
-
-	/** AfterImage의 ObjectPool입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Effect|AfterImage", meta = (AllowPrivateAccess = "true"))
-	TArray<class APRAfterImage*> AfterImageObjectPool;
 #pragma endregion
 
 #pragma region SkillPalette
@@ -484,16 +551,31 @@ public:
 public:
 	/** ComboCount를 초기화하는 함수입니다. */
 	void InitializeComboCount();
+
+	/** ComboCount를 실행하는 함수입니다. */
+	void ActivateComboCount();
 	
 	/** ComboCount를 최신화하는 함수입니다. */
-	void UpdateComboCount();
+	void UpdateComboCount(float DeltaTime);
 
 	/** 콤보 횟수를 초기화하는 시간의 남은 시간의 비율을 반환하는 함수입니다. */
 	float GetComboCountResetTimeRatio() const;
 	
 protected:
 	/** 마지막 콤보가 적용되고 더이상의 콤보가 없을 경우 설정한 시간이 지난 후 콤보 횟수를 초기화하는 TimerHandle입니다. */
-	FTimerHandle ComboCountTimerHandle;
+	// FTimerHandle ComboCountTimerHandle;
+
+	/** ComboCount의 실행을 나타내는 변수입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown")
+	bool bActivateComboCount;
+
+	/** ComboCount의 초기화까지의 남은 시간입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown")
+	float ComboCountResetRemaining;
+
+	/** ComboCount의 초기화 시간이 실행된 경과 시간입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown")
+	float ComboCountResetElapsed;
 
 	/** 콤보 횟수입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "ComboCount")

@@ -3,12 +3,17 @@
 
 #include "Components/PRObjectPoolSystemComponent.h"
 #include "Objects/PRPooledObject.h"
+#include "Characters/PRBaseCharacter.h"
 
 UPRObjectPoolSystemComponent::UPRObjectPoolSystemComponent()
 {
+	PrimaryComponentTick.bCanEverTick = true;
+
 	PooledObjectInfos.Empty();
 	ObjectPool.Empty();
 	ActivatePoolIndexes.Empty();
+	bIgnoreTimeStop = false;
+	bActivateTimeStop = false;
 }
 
 void UPRObjectPoolSystemComponent::BeginPlay()
@@ -16,6 +21,43 @@ void UPRObjectPoolSystemComponent::BeginPlay()
 	Super::BeginPlay();
 	
 	InitializeObjectPool();
+}
+
+void UPRObjectPoolSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// TimeStop을 무시할 때 Effect의 TimeDilation을 최신화합니다.
+	if(bIgnoreTimeStop)
+	{
+		if(bActivateTimeStop)
+		{
+			UpdateObjectPoolsTimeDilation(DeltaTime);
+		}
+		else
+		{
+			UpdateObjectPoolsTimeDilation(GetPROwner()->GetWorld()->DeltaTimeSeconds * 0.1f);
+		}
+	}
+}
+
+void UPRObjectPoolSystemComponent::DestroyComponent(bool bPromoteChildren)
+{
+	// 모든 ObjectPool 파괴
+	if(ObjectPool.Num() > 0)
+	{
+		for(auto& PooledObjects : ObjectPool)
+		{
+			for(auto& PooledObject : PooledObjects.Value.Objects)
+			{
+				PooledObject->Destroy();
+			}
+		}
+
+		ObjectPool.Empty();
+	}
+	
+	Super::DestroyComponent(bPromoteChildren);
 }
 
 void UPRObjectPoolSystemComponent::CreateObjectPool(FPRPooledObjectInfo PooledObjectInfo)
@@ -30,7 +72,7 @@ void UPRObjectPoolSystemComponent::CreateObjectPool(FPRPooledObjectInfo PooledOb
 			{
 				PoolableObject->SetObjectOwner(GetOwner());
 				PoolableObject->InitializePooledObject();
-				PoolableObject->SetActivate(false);
+				PoolableObject->Deactivate();
 				PoolableObject->SetObjectName(PooledObjectInfo.ObjectName);
 				PoolableObject->SetLifespan(PooledObjectInfo.Lifespan);
 				PoolableObject->SetPoolIndex(Index);
@@ -55,7 +97,7 @@ APRPooledObject* UPRObjectPoolSystemComponent::ActivatePooledObject(FName NewObj
 			{
 				if(IsValid(ActivateableObject) == true && IsActivatePooledObject(ActivateableObject) == false)
 				{
-					ActivateableObject->SetActivate(true);
+					ActivateableObject->Activate();
 					// 처음 활성화하는 오브젝트의 경우 맵을 새로 추가합니다.
 					if(ActivatePoolIndexes.Contains(NewObjectName) == false)
 					{
@@ -93,8 +135,8 @@ APRPooledObject* UPRObjectPoolSystemComponent::ActivatePooledObject(FName NewObj
 						APRPooledObject* NewPooledObject = PooledObjects.Value.Objects[PooledObjectIndex];
 						if(IsValid(NewPooledObject) == true)
 						{
-							NewPooledObject->SetActivate(false);
-							NewPooledObject->SetActivate(true);
+							NewPooledObject->Deactivate();
+							NewPooledObject->Activate();
 							ActivatePoolIndex.Value.ActivateIndexes.Emplace(NewPooledObject->GetPoolIndex());
 
 							return NewPooledObject;
@@ -184,4 +226,25 @@ void UPRObjectPoolSystemComponent::InitializeObjectPool()
 			CreateObjectPool(PooledObjectInfo);
 		}
 	}
+}
+
+void UPRObjectPoolSystemComponent::UpdateObjectPoolsTimeDilation(float DeltaTime)
+{
+	for(auto& PooledObjects : ObjectPool)
+	{
+		for(auto& PooledObject : PooledObjects.Value.Objects)
+		{
+			PooledObject->UpdatePooledObject(DeltaTime);
+		}
+	}
+}
+
+void UPRObjectPoolSystemComponent::SetIgnoreTimeStop(bool bNewIgnoreTimeStop)
+{
+	bIgnoreTimeStop = bNewIgnoreTimeStop;
+}
+
+void UPRObjectPoolSystemComponent::SetActivateTimeStop(bool bNewActivateTimeStop)
+{
+	bActivateTimeStop = bNewActivateTimeStop;
 }

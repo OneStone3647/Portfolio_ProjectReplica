@@ -62,29 +62,18 @@ void APRBaseProjectileObject::OnEndOverlap_Implementation(UPrimitiveComponent* O
 #pragma endregion
 
 #pragma region PooledObject
-void APRBaseProjectileObject::Deactivate()
+void APRBaseProjectileObject::Activate_Implementation()
 {
-	Super::Deactivate();
+	Super::Activate_Implementation();
+
+	ProjectileMovement->Velocity = GetActorForwardVector() * ProjectileMovement->InitialSpeed;
 }
 
-void APRBaseProjectileObject::SetActivate_Implementation(bool bIsActivate)
+void APRBaseProjectileObject::Deactivate_Implementation()
 {
-	Super::SetActivate_Implementation(bIsActivate);
+	Super::Deactivate_Implementation();
 
-	if(bIsActivate)
-	{
-		// 투사체의 위치를 초기화합니다.
-		// if(GetObjectOwner() != nullptr)
-		// {
-		// 	SetActorLocationAndRotation(GetObjectOwner()->GetActorLocation(), GetObjectOwner()->GetActorForwardVector().Rotation());
-		// }
-		
-		ProjectileMovement->Velocity = GetActorForwardVector() * ProjectileMovement->InitialSpeed;
-	}
-	else
-	{
-		ProjectileMovement->Velocity = FVector::ZeroVector;
-	}
+	ProjectileMovement->Velocity = FVector::ZeroVector;
 }
 
 float APRBaseProjectileObject::GetProjectileDamage() const

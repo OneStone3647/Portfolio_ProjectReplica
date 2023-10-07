@@ -11,6 +11,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraComponent.h"
+#include "Components/PRStateSystemComponent.h"
 
 APRMeleeWeapon::APRMeleeWeapon()
 {
@@ -399,7 +400,7 @@ void APRMeleeWeapon::SpawnHitEffectByWeaponPosition(EPRWeaponPosition NewWeaponP
 			EffectRotator = FRotator(WeaponRotator.Pitch, WeaponRotator.Yaw, 0.0f);
 		}
 
-		GetPROwner()->GetEffectSystem()->SpawnEffectAtLocation(HitEffect, NewHitLocation, EffectRotator + HitEffectRotator, HitEffectScale);
+		GetPROwner()->GetEffectSystem()->SpawnNiagaraEffectAtLocation(HitEffect, NewHitLocation, EffectRotator + HitEffectRotator, HitEffectScale);
 		// UNiagaraComponent* SpawnHitEffect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), HitEffect, NewHitLocation, EffectRotator + HitEffectRotator, HitEffectScale);
 	}
 }
@@ -408,7 +409,7 @@ void APRMeleeWeapon::SpawnHitEffect(FRotator NewWeaponRotator, FVector NewHitLoc
 {
 	if(HitEffect != nullptr && IsValid(GetPROwner()) == true)
 	{
-		GetPROwner()->GetEffectSystem()->SpawnEffectAtLocation(HitEffect, NewHitLocation, NewWeaponRotator + HitEffectRotator, HitEffectScale);
+		GetPROwner()->GetEffectSystem()->SpawnNiagaraEffectAtLocation(HitEffect, NewHitLocation, NewWeaponRotator + HitEffectRotator, HitEffectScale);
 		// UNiagaraComponent* SpawnHitEffect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), HitEffect, NewHitLocation, NewWeaponRotator + HitEffectRotator, HitEffectScale);
 	}
 }

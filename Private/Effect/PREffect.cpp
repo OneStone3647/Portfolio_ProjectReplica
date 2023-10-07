@@ -23,6 +23,10 @@ void UPREffect::Initialize()
 	Lifespan = 0.0f;
 }
 
+void UPREffect::UpdateEffect(float DeltaTime)
+{
+}
+
 bool UPREffect::IsActivate() const
 {
 	return bActivate;
@@ -31,7 +35,6 @@ bool UPREffect::IsActivate() const
 void UPREffect::Activate()
 {
 	bActivate = true;
-
 	// Effect의 수명이 끝나면 Effect를 비활성화합니다.
 	if(GetEffectOwner() != nullptr)
 	{
@@ -57,17 +60,25 @@ void UPREffect::Destroy()
 
 void UPREffect::SpawnEffectAtLocation(FVector Location, FRotator Rotation, FVector Scale, bool bAutoActivate)
 {
-	Activate();
 }
 
 void UPREffect::SpawnEffectAttached(USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bAutoActivate)
 {
-	Activate();
 }
 
 FVector UPREffect::GetEffectLocation() const
 {
 	return FVector::ZeroVector;
+}
+
+UFXSystemComponent* UPREffect::GetFXSystemComponent() const
+{
+	return nullptr;
+}
+
+bool UPREffect::IsLooping() const
+{
+	return false;
 }
 
 UFXSystemAsset* UPREffect::GetEffectSourceAsset() const

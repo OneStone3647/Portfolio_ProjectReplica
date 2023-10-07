@@ -135,8 +135,12 @@ float APRBaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 {
 	float FinalDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
-	TakeHit(DamageCauser);
-	GetStatSystem()->TakeDamage(FinalDamage);
+	// 캐릭터가 죽지않았을 경우 피격을 적용합니다.
+	if(GetStateSystem()->IsDead() == false && GetStateSystem()->IsInvincible() == false)
+	{
+		TakeHit(DamageCauser);
+		GetStatSystem()->TakeDamage(FinalDamage);
+	}
 	
 	return FinalDamage;
 }
@@ -161,7 +165,7 @@ void APRBaseCharacter::TakeHit(AActor* DamageCauser)
 		APRPlayerCharacter* PRPlayerDamageCauser = Cast<APRPlayerCharacter>(DamageCauser);
 		if(PRPlayerDamageCauser != nullptr)
 		{
-			PRPlayerDamageCauser->UpdateComboCount();
+			PRPlayerDamageCauser->ActivateComboCount();
 		}
 	}
 

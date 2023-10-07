@@ -137,7 +137,7 @@ void APRDualMeleeWeapons::SpawnHitEffectByWeaponPosition(EPRWeaponPosition NewWe
 		
 		EffectRotator = FRotator(WeaponRotator.Pitch, WeaponRotator.Yaw, 0.0f);
 
-		GetPROwner()->GetEffectSystem()->SpawnEffectAtLocation(HitEffect, NewHitLocation, EffectRotator + HitEffectRotator, HitEffectScale);
+		GetPROwner()->GetEffectSystem()->SpawnNiagaraEffectAtLocation(HitEffect, NewHitLocation, EffectRotator + HitEffectRotator, HitEffectScale);
 		// UNiagaraComponent* SpawnHitEffect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), HitEffect, NewHitLocation, EffectRotator + HitEffectRotator, HitEffectScale);
 	}
 }

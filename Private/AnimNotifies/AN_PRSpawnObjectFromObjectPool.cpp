@@ -27,7 +27,6 @@ void UAN_PRSpawnObjectFromObjectPool::Notify(USkeletalMeshComponent* MeshComp, U
 		UPRObjectPoolSystemComponent* ObjectPoolSystem = ObjectPoolSystemOwner->FindComponentByClass<UPRObjectPoolSystemComponent>();
 		if(ObjectPoolSystem != nullptr)
 		{
-			// SetPooledObjectSpawnLocation(ObjectPoolSystem->ActivatePooledObject(SpawnPooledObjectName));
 			ObjectPoolSystem->ActivatePooledObject(SpawnPooledObjectName);
 		}
 	}

@@ -11,20 +11,34 @@
 
 UPRTimeStopSystemComponent::UPRTimeStopSystemComponent()
 {
+	PrimaryComponentTick.bCanEverTick = true;
+	
 	bDebug = false;
 	bActivate = false;
-	bActivateTimeStopRange = true;
+	bActivateTimeStopRange = false;
 	TimeStopDuration = 3.0f;
+	TimeStopRemaining = 0.0f;
+	TimeStopElapsed = 0.0f;
 	TimeStopDilation = 0.0001f;
 	OwnerTimeDilation = 1.0f;
 	TimeStopRange = FVector(1000.0f, 1000.0f, 1000.0f);
 	BaseMotionBlurIntensity = 0.5f;
 }
 
-void UPRTimeStopSystemComponent::ActivateTimeStop()
+void UPRTimeStopSystemComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	UpdateTimeStop(DeltaTime);
+}
+
+void UPRTimeStopSystemComponent::ActivateTimeStop(float NewTimeStopDuration)
 {
 	if(IsValid(GetPROwner()) == true)
 	{
+		TimeStopDuration = NewTimeStopDuration;
+		TimeStopRemaining = TimeStopDuration;
+		TimeStopElapsed = 0.0f;
 		bActivate = true;
 
 		// 범위를 설정하여 TimeStop을 실행할 경우
@@ -86,9 +100,19 @@ void UPRTimeStopSystemComponent::ActivateTimeStop()
 			float NewOwnerTimeDilation = OwnerTimeDilation / TimeStopDilation;
 			FTimerHandle TimerHandle;
 			FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &UPRTimeStopSystemComponent::SetOwnerCustomTimeDilation, NewOwnerTimeDilation);
+
+			// Delay를 두고 Owner의 TimeDilation을 설정하지 않으면 Owner가 순간적으로 가속하게 됩니다.
 			// Delay함수와 달리 타이머는 글로벌 시간 흐름 속도(Global Time Dilation)의 영향을 받습니다.
 			// 이미 앞선 코드로 인해 클로벌 시간 흐름 속도가 줄어들었으므로 Delay시간을 배로 설정합니다.
 			GetWorld()->GetTimerManager().SetTimer(TimerHandle, TimerDelegate, TimeStopDilation * TimeStopDilation, false);
+			
+			// 지속시간이 끝나면 TimeStop을 종료합니다.
+			// GetWorld()->GetTimerManager().SetTimer(TimeStopTimerHandle, this, &UPRTimeStopSystemComponent::DeactivateTimeStop, TimeStopDuration * TimeStopDilation, false);
+		}
+		
+		if(OnActivateTimeStop.IsBound() == true)
+		{
+			OnActivateTimeStop.Broadcast();
 		}
 	}
 }
@@ -100,6 +124,8 @@ void UPRTimeStopSystemComponent::DeactivateTimeStop()
 		GetWorld()->GetTimerManager().ClearTimer(TimeStopTimerHandle);
 		
 		bActivate = false;
+		TimeStopRemaining = TimeStopDuration;
+		TimeStopElapsed = 0.0f;
 
 		// 범위를 설정하여 TimeStop을 실행할 경우
 		if(bActivateTimeStopRange)
@@ -125,6 +151,8 @@ void UPRTimeStopSystemComponent::DeactivateTimeStop()
 				ChangeMotionBlurAmount(PRPlayerCharacter->GetFollowCamera()->PostProcessSettings, 0.5f);
 			}
 			
+			// Owner의 시간 흐름 속도를 초기화합니다.
+			// GetPROwner()->CustomTimeDilation = 1.0f;
 			// 글로벌 시간 흐름 속도를 초기화합니다.
 			UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
 			// UI사운드를 제외한 모든 사운드의 시간 흐름 속도 초기화합니다.
@@ -132,12 +160,31 @@ void UPRTimeStopSystemComponent::DeactivateTimeStop()
 			// Owner의 시간 흐름 속도를 초기화합니다.
 			GetPROwner()->CustomTimeDilation = 1.0f;
 		}
+
+		if(OnDeactivateTimeStop.IsBound() == true)
+		{
+			OnDeactivateTimeStop.Broadcast();
+		}
 	}
 }
 
 bool UPRTimeStopSystemComponent::IsActivateTimeStop() const
 {
 	return bActivate;
+}
+
+void UPRTimeStopSystemComponent::UpdateTimeStop(float DeltaTime)
+{
+	if(bActivate)
+	{
+		TimeStopElapsed += DeltaTime;
+		TimeStopRemaining = TimeStopDuration - TimeStopElapsed;
+
+		if(TimeStopElapsed >= TimeStopDuration)
+		{
+			DeactivateTimeStop();
+		}
+	}
 }
 
 void UPRTimeStopSystemComponent::SetOwnerCustomTimeDilation(float NewCustomTimeDilation)
@@ -153,4 +200,9 @@ void UPRTimeStopSystemComponent::ChangeMotionBlurAmount(FPostProcessSettings& Po
 	// true로 설정해야 변경된 MotionBlurAmount 값으로 설정됩니다.
 	PostProcessSettings.bOverride_MotionBlurAmount = true;
 	PostProcessSettings.MotionBlurAmount = NewMotionBlurAmount;
+}
+
+float UPRTimeStopSystemComponent::GetTimeStopDuration() const
+{
+	return TimeStopDuration;
 }

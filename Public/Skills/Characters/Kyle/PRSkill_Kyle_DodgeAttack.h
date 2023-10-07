@@ -18,7 +18,7 @@ class PROJECTREPLICA_API UPRSkill_Kyle_DodgeAttack : public UPRNoneCooldownSkill
 
 public:
 	UPRSkill_Kyle_DodgeAttack();
-
+	
 public:
 	/** 스킬을 초기화하는 함수입니다. */
 	virtual void InitializeSkill_Implementation() override;
@@ -77,10 +77,4 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PRAnimMontage", meta = (ClampMin = "1000", ClampMax = "1999", AllowPrivateAccess = "true"))
 	int32 PRComboAnimMontageToID;
 #pragma endregion
-
-#pragma region DurationEffect
-protected:
-	/** 지속효과가 종료되었을 때 실행하는 함수입니다. */
-	virtual void EndDurationEffect() override;
-#pragma endregion 
 };

@@ -18,7 +18,6 @@ APRAfterImage::APRAfterImage()
 	bActivate = false;
 	FadeOutTime = 0.7f;
 	FadeOutCountDown = 0.0f;
-
 }
 
 void APRAfterImage::BeginPlay()
@@ -36,38 +35,7 @@ void APRAfterImage::Tick(float DeltaTime)
 
 bool APRAfterImage::IsActivate() const
 {
-	return IsHidden() == false && bActivate == true;
-}
-
-void APRAfterImage::Activate(USkeletalMeshComponent* NewMesh, FTransform NewTransform)
-{
-	if(AfterImageMaterial != nullptr && NewMesh != nullptr && IsActivate() == false)
-	{
-		bActivate = true;
-		FadeOutCountDown = FadeOutTime;
-		SetActorHiddenInGame(false);
-		SetActorTransform(NewTransform);
-		PoseableMesh->SetSkeletalMesh(NewMesh->SkeletalMesh);
-
-		// DynamicMaterials가 생성되지 않았으면 DynamicMaterials를 생성합니다.
-		if(DynamicMaterials.Num() == 0)
-		{
-			CreatePoseableMeshMaterials(NewMesh);
-		}
-
-		APRBaseCharacter* PROwner = Cast<APRBaseCharacter>(NewMesh->GetOwner());
-		if(IsValid(PROwner) == true)
-		{
-			AfterImageColor = PROwner->GetSignatureEffectColor();
-		}
-			
-		for(UMaterialInstanceDynamic* DynamicMaterial : DynamicMaterials)
-		{
-			DynamicMaterial->SetVectorParameterValue(TEXT("Color"), AfterImageColor);
-		}
-
-		PoseableMesh->CopyPoseFromSkeletalComponent(NewMesh);
-	}
+	return bActivate;
 }
 
 void APRAfterImage::CreatePoseableMeshMaterials(USkeletalMeshComponent* NewMesh)
@@ -112,5 +80,44 @@ void APRAfterImage::SetOpacity(float Value)
 	{
 		DynamicMaterial->SetScalarParameterValue(TEXT("Opacity"), Value);
 	}
+}
+
+void APRAfterImage::Activate_Implementation()
+{
+	Super::Activate_Implementation();
+
+	if(AfterImageMaterial != nullptr
+		&& GetObjectOwner() != nullptr)
+	{
+		APRBaseCharacter* PROwner = Cast<APRBaseCharacter>(GetObjectOwner());
+		if(PROwner != nullptr)
+		{
+			USkeletalMeshComponent* NewMesh = PROwner->GetMesh();
+			
+			FadeOutCountDown = FadeOutTime;
+			SetActorTransform(NewMesh->GetComponentTransform());
+			PoseableMesh->SetSkeletalMesh(NewMesh->SkeletalMesh);
+
+			// DynamicMaterials가 생성되지 않았으면 DynamicMaterials를 생성합니다.
+			if(DynamicMaterials.Num() == 0)
+			{
+				CreatePoseableMeshMaterials(NewMesh);
+			}
+
+			// 잔상의 색을 설정합니다.
+			AfterImageColor = PROwner->GetSignatureEffectColor();
+			for(UMaterialInstanceDynamic* DynamicMaterial : DynamicMaterials)
+			{
+				DynamicMaterial->SetVectorParameterValue(TEXT("Color"), AfterImageColor);
+			}
+
+			PoseableMesh->CopyPoseFromSkeletalComponent(NewMesh);
+		}
+	}
+}
+
+void APRAfterImage::Deactivate_Implementation()
+{
+	Super::Deactivate_Implementation();
 }
 

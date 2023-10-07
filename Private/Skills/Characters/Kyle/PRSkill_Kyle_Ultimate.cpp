@@ -94,7 +94,7 @@ void UPRSkill_Kyle_Ultimate::ActivateGeneralUltimate()
 	APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(GetSkillOwner());
 	if(PRPlayerCharacter != nullptr)
 	{
-		PRPlayerCharacter->ActivateWorldCameraMonochrome(true);
+		// PRPlayerCharacter->ActivateWorldCameraMonochrome(true);
 	}
 
 	// 캐스팅 시간이 지난 후 GeneralUltimateObject를 활성화합니다.
@@ -119,7 +119,7 @@ void UPRSkill_Kyle_Ultimate::FinishGeneralUltimate()
 		APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(GetSkillOwner());
 		if(PRPlayerCharacter != nullptr)
 		{
-			PRPlayerCharacter->ActivateWorldCameraMonochrome(false);
+			// PRPlayerCharacter->ActivateWorldCameraMonochrome(false);
 		}
 		
 	}), 2.0f, false);

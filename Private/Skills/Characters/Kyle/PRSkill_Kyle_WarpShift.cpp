@@ -17,8 +17,6 @@
 
 UPRSkill_Kyle_WarpShift::UPRSkill_Kyle_WarpShift()
 {
-	bTickable = true;
-
 	// WarpShift
 	MoveLerpFloatCurve = nullptr;
 	WarpShiftSpeedRatio = 1.0f;

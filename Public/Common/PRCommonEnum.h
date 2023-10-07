@@ -131,10 +131,12 @@ enum class EPRCharacterState : uint8
 UENUM(BlueprintType)
 enum class EPRAbleState : uint8
 {
-	   AbleState_Moveable				UMETA(DisplayName = "Moveable"),
-	   AbleState_Dodgeable				UMETA(DisplayName = "Dodgeable"),
-	   AbleState_Attackable			    UMETA(DisplayName = "Attackable"),
-	   AbleState_DodgeAttackable		UMETA(DisplayName = "DodgeAttackbale")
+	AbleState_Moveable				UMETA(DisplayName = "Moveable"),
+	AbleState_Dodgeable				UMETA(DisplayName = "Dodgeable"),
+	AbleState_Attackable		    UMETA(DisplayName = "Attackable"),
+	AbleState_DodgeAttackable		UMETA(DisplayName = "DodgeAttackbale"),
+	AbleState_ExtremeDodgeable		UMETA(DisplayName = "ExtremDodgeable")
+
 };
 
 /**
@@ -157,6 +159,6 @@ enum class EPRAction : uint8
 	Action_CoreSkill			UMETA(DosplayName = "CoreSkill"),
 	Action_Guard				UMETA(DisplayName = "Guard"),
 	Action_Parry				UMETA(DisplayName = "Parry"),
-	Action_DodgeAttack			UMETA(DisplayName = "DodgeAttack")
+	Action_DodgeAttack			UMETA(DisplayName = "DodgeAttack"),
 };
 

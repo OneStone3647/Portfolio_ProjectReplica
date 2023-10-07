@@ -3,7 +3,7 @@
 #pragma once
 
 #include "ProjectReplica.h"
-#include "GameFramework/Actor.h"
+#include "Objects/PRPooledObject.h"
 #include "PRAfterImage.generated.h"
 
 class UPoseableMeshComponent;
@@ -12,7 +12,7 @@ class UPoseableMeshComponent;
  * 캐릭터의 잔상(AfterImage)을 표현하는 Actor 클래스입니다.
  */
 UCLASS()
-class PROJECTREPLICA_API APRAfterImage : public AActor
+class PROJECTREPLICA_API APRAfterImage : public APRPooledObject
 {
 	GENERATED_BODY()
 	
@@ -21,8 +21,6 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-
-public:	
 	virtual void Tick(float DeltaTime) override;
 
 public:
@@ -30,16 +28,7 @@ public:
 	 * AfterImage가 활성화됐는지 판별하는 함수입니다.
 	 * @return AfterImage가 활성화됐을 경우 true를 아닐 경우 false를 반환합니다.
 	 */
-	bool IsActivate() const;
-	
-	/**
-	 * AfterImage를 활성화하는 함수입니다.
-	 * 인자로 받은 Mesh로 AfterImage를 활성화합니다.
-	 * @param NewMesh PoseableMesh에 적용할 Mesh입니다.
-	 * @param NewTransform 이 Actor에 적용할 Transform입니다.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "PRGhostTrail")
-	void Activate(USkeletalMeshComponent* NewMesh, FTransform NewTransform);
+	virtual bool IsActivate() const override;
 
 private:
 	/** AfterImageMaterial로 PoseableMesh가 사용할 UMaterialInstanceDynamic를 생성하는 함수입니다. */
@@ -79,14 +68,19 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PRGhostTrail", meta = (AllowPrivateAccess = "true"))
 	FLinearColor AfterImageColor;
 
-	/** 활성화됐는지 나타내는 변수입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRGhostTrail", meta = (AllowPrivateAccess = "true"))
-	bool bActivate;
-
 	/** AfterImageMaterial의 Opacity 값이 0이 될 때 까지의 시간입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PRGhostTrail", meta = (AllowPrivateAccess = "true"))
 	float FadeOutTime;
 
 	/** AfterImageMaterial의 Opacity 값이 0이 될 때 까지의 카운트 다운 시간입니다. */
 	float FadeOutCountDown;
+
+#pragma region PooledObject
+public:
+	/** 오브젝트를 활성화하는 함수입니다. */
+	virtual void Activate_Implementation() override;
+	
+	/** 오브젝트를 비활성화하는 함수입니다. */
+	virtual void Deactivate_Implementation() override;
+#pragma endregion 
 };

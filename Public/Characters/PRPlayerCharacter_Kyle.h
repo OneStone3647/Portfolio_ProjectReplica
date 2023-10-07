@@ -4,6 +4,7 @@
 
 #include "ProjectReplica.h"
 #include "Characters/PRPlayerCharacter.h"
+#include "NiagaraSystem.h"
 #include "PRPlayerCharacter_Kyle.generated.h"
 
 /**

@@ -56,7 +56,8 @@ enum class EPRCommandSkill : uint8
 	CommandSkill_CoreSkill				UMETA(DosplayName = "CoreSkill"),
 	CommandSkill_Guard					UMETA(DisplayName = "Guard"),
 	CommandSkill_Parry					UMETA(DisplayName = "Parry"),
-	CommandSkill_DodgeAttack			UMETA(DisplayName = "DodgeAttack")
+	CommandSkill_DodgeAttack			UMETA(DisplayName = "DodgeAttack"),
+	CommandSkill_ExtremeDodge			UMETA(DisplayName = "ExtremeDodge")
 };
 
 /**
@@ -73,6 +74,7 @@ public:
 		, Description()
 		, SkillType()
 		, Cooldown()
+		, bIgnoreTimeStop()
 		, Duration()
 		, Damage()
 		, MaxActivatableCount(-1)
@@ -82,13 +84,14 @@ public:
 		, ObjectInfos()
 	{}
 
-	FPRSkillInfo(FText NewName, FText NewDescription, EPRSkillType NewSkillType, float NewCooldown, float NewDuration,
+	FPRSkillInfo(FText NewName, FText NewDescription, EPRSkillType NewSkillType, float NewCooldown, bool bNewIgnoreTimeStop, float NewDuration,
 					float NewDamage, int32 NewMaxActivatableCount, UTexture2D* NewSkillIcon, EPRCommandSkill NewCommandSkill,
 					EPRSkillActivatableType NewActivatableType, TArray<FPRPooledObjectInfo> NewObjectInfos)
 		: Name(NewName)
 		, Description(NewDescription)
 		, SkillType(NewSkillType)
 		, Cooldown(NewCooldown)
+		, bIgnoreTimeStop(bNewIgnoreTimeStop)
 		, Duration(NewDuration)
 		, Damage(NewDamage)
 		, MaxActivatableCount(NewMaxActivatableCount)
@@ -109,11 +112,18 @@ public:
 	
 	/** 스킬의 종류입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
-	EPRSkillType SkillType;	
+	EPRSkillType SkillType;
 
 	/** 스킬의 재사용 대기시간입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
 	float Cooldown;
+
+	/**
+	 * TimeStop을 무시하고 재사용 대기시간을 실행할지 나타내는 변수입니다.
+	 * true일 경우 TimeStop일 때도 재사용 대기시간을 실행합니다. false일 경우 TimeStop일 때 재사용 대기시간을 일시정지합니다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
+	bool bIgnoreTimeStop;
 
 	/** 스킬의 지속시간입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
@@ -156,6 +166,7 @@ public:
 		this->Description = NewSkillInfo.Description;
 		this->SkillType = NewSkillInfo.SkillType;
 		this->Cooldown = NewSkillInfo.Cooldown;
+		this->bIgnoreTimeStop = NewSkillInfo.bIgnoreTimeStop;
 		this->Duration = NewSkillInfo.Duration;
 		this->Damage = NewSkillInfo.Damage;
 		this->MaxActivatableCount = NewSkillInfo.MaxActivatableCount;
@@ -195,11 +206,11 @@ public:
 
 protected:
 	/** Tick 함수의 활성화/비활성화를 설정하는 변수입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "TickableGameObject")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TickableGameObject")
 	bool bTickable;
 
 	/** 게임이 일시 정지되었을 때 Tick 함수를 호출할지 나타내는 변수입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "TickableGameObject")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TickableGameObject")
 	bool bTickableWhenPaused;
 #pragma endregion 
 
@@ -322,10 +333,26 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "DurationEffect")
 	virtual void EndDurationEffect();
 
+	/** 지속효과를 최신화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "DurationEffect")
+	virtual void UpdateDurationEffect(float DeltaTime);
+
 protected:
 	/** 지속효과에 사용하는 TimerHandle입니다. */
 	FTimerHandle DurationTimerHandle;
 
+	/** 지속효과의 실행을 나타내는 변수입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")
+	bool bActivateDurationEffect;
+
+	/** 지속효과의 남은 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")
+	float DurationEffectRemaining;
+
+	/** 지속효과의 경과 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")
+	float DurationEffectElapsed;
+	
 public:
 	/** 지속스킬이 실행됐을 때 실행하는 델리게이트입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")

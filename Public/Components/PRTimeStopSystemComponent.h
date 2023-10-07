@@ -6,6 +6,9 @@
 #include "Components/PRBaseActorComponent.h"
 #include "PRTimeStopSystemComponent.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnActivateTimeStop);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeactivateTimeStop);
+
 /**
  * 플레이어 캐릭터를 제외한 일정범위 안에 존재하는 Actor들을 일시정지하는 TimeStop을 실행하는 ActorComponent 클래스입니다.
  */
@@ -17,13 +20,17 @@ class PROJECTREPLICA_API UPRTimeStopSystemComponent : public UPRBaseActorCompone
 public:
 	UPRTimeStopSystemComponent();
 
+protected:
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
 public:
 	/**
 	 * TimeStop을 실행하는 함수입니다.
 	 * TimeStopRange 범위 내에 존재하는 오브젝트들의 CustomTimeDilation을 TimeStopDilation으로 설정합니다.
+	 * @param NewTimeStopDuration 적용할 TimeStop의 시간입니다.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "TimeStop")
-	void ActivateTimeStop();
+	void ActivateTimeStop(float NewTimeStopDuration = 4.0f);
 
 	/** TimeStop을 비활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "TimeStop")
@@ -32,6 +39,10 @@ public:
 	/** TimeStop을 실행하고 있는지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "TimeStop")
 	bool IsActivateTimeStop() const;
+
+	/** TimeStop을 최신화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStop")
+	void UpdateTimeStop(float DeltaTime);
 
 protected:
 	/** Owner의 CustomTimeDilation을 설정하는 함수입니다. */
@@ -68,6 +79,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "TimeStop")
 	float TimeStopDuration;
 
+	/** TimeStop의 남은 시간입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "TimeStop")
+	float TimeStopRemaining;
+
+	/** TimeStop의 경과시간입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "TimeStop")
+	float TimeStopElapsed;
+	
 	/** TimeStop 실행시 적용할 시간 흐름 속도입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "TimeStop")
 	float TimeStopDilation;
@@ -86,4 +105,17 @@ protected:
 	/** TimeStop 실행시 화면의 블러 현상을 조절하기 위한 MotionBlur의 강도입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "TimeStop")
 	float BaseMotionBlurIntensity;
+
+public:
+	/** TimeStopDuration을 반환하는 함수입니다. */
+	float GetTimeStopDuration() const;
+
+public:
+	/** TimeStop이 활성화일 때 실행하는 Delegate입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintAssignable, BlueprintCallable, Category = "TimeStop")
+	FOnActivateTimeStop OnActivateTimeStop;
+	
+	/** TimeStop이 비활성화일 때 실행하는 Delegate입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintAssignable, BlueprintCallable, Category = "TimeStop")
+	FOnDeactivateTimeStop OnDeactivateTimeStop;
 };

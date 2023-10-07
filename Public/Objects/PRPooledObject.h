@@ -23,24 +23,35 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
+	/** 오브젝트를 최신화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")
+	void UpdatePooledObject(float DeltaTime);
+	virtual void UpdatePooledObject_Implementation(float DeltaTime);
+	
 	/** 오브젝트가 활성화 되었는지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "Pooled Object")
 	virtual bool IsActivate() const;
 
-	/** 입력받은 인자로 오브젝트의 활성화를 설정하는 함수입니다. */
+	/** 오브젝트를 활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")
-	void SetActivate(bool bIsActivate);
-	virtual void SetActivate_Implementation(bool bIsActivate);
+	void Activate();
+	virtual void Activate_Implementation();
 
+	/** 오브젝트를 비활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")
+	void Deactivate();
+	virtual void Deactivate_Implementation();
+	
+	
 	/** 오브젝트를 초기화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")
 	void InitializePooledObject();
 	virtual void InitializePooledObject_Implementation();	
 
 protected:
-	/** 오브젝트를 비활성화하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "Pooled Object")
-	virtual void Deactivate();
+	// /** 오브젝트를 비활성화하는 함수입니다. */
+	// UFUNCTION(BlueprintCallable, Category = "Pooled Object")
+	// virtual void Deactivate();
 
 	/** 오브젝트의 Spawn 위치를 초기화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")

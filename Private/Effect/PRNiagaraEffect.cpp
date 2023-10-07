@@ -4,6 +4,7 @@
 #include "Effect/PRNiagaraEffect.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 UPRNiagaraEffect::UPRNiagaraEffect()
 {
@@ -16,6 +17,26 @@ void UPRNiagaraEffect::Initialize()
 
 	OnEffectDeactivate.Clear();
 	Deactivate();
+}
+
+void UPRNiagaraEffect::UpdateEffect(float DeltaTime)
+{
+	Super::UpdateEffect(DeltaTime);
+
+	if(DeltaTime != 0.0f && NiagaraEffect != nullptr && IsValid(GetEffectOwner()) == true)
+	{
+		NiagaraEffect->AdvanceSimulation(1, DeltaTime);
+	}
+}
+
+bool UPRNiagaraEffect::IsActivate() const
+{
+	if(NiagaraEffect != nullptr)
+	{
+		return Super::IsActivate() && NiagaraEffect->IsActive();
+	}
+
+	return false;
 }
 
 void UPRNiagaraEffect::Activate()
@@ -34,6 +55,7 @@ void UPRNiagaraEffect::Deactivate()
 
 	if(NiagaraEffect != nullptr)
 	{
+		NiagaraEffect->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		NiagaraEffect->Deactivate();
 	}
 }
@@ -48,10 +70,10 @@ void UPRNiagaraEffect::Destroy()
 
 void UPRNiagaraEffect::SpawnEffectAtLocation(FVector Location, FRotator Rotation, FVector Scale, bool bAutoActivate)
 {
-	Super::SpawnEffectAtLocation(Location, Rotation, Scale, bAutoActivate);
-
 	if(NiagaraEffect != nullptr)
 	{
+		Activate();
+		
 		NiagaraEffect->SetWorldLocationAndRotation(Location, Rotation);
 		NiagaraEffect->SetRelativeScale3D(Scale);
 		
@@ -64,14 +86,15 @@ void UPRNiagaraEffect::SpawnEffectAtLocation(FVector Location, FRotator Rotation
 
 void UPRNiagaraEffect::SpawnEffectAttached(USceneComponent* AttachToComponent, FName AttachPointName, FVector Location,	FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bAutoActivate)
 {
-	Super::SpawnEffectAttached(AttachToComponent, AttachPointName, Location, Rotation, Scale, LocationType, bAutoActivate);
-
 	if(NiagaraEffect != nullptr && AttachToComponent != nullptr)
 	{
-		NiagaraEffect->AttachToComponent(AttachToComponent, FAttachmentTransformRules::KeepRelativeTransform, AttachPointName);
+		Activate();
+		
+		const FAttachmentTransformRules AttachmentTransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepRelative, false);
+		NiagaraEffect->AttachToComponent(AttachToComponent, AttachmentTransformRules, AttachPointName);
 		if (LocationType == EAttachLocation::KeepWorldPosition)
 		{
-			NiagaraEffect->SetWorldLocationAndRotation(Location, Rotation);
+			NiagaraEffect->SetWorldLocationAndRotation(AttachToComponent->GetSocketLocation(AttachPointName) + Location, AttachToComponent->GetSocketRotation(AttachPointName) + Rotation);
 		}
 		else
 		{
@@ -88,7 +111,27 @@ void UPRNiagaraEffect::SpawnEffectAttached(USceneComponent* AttachToComponent, F
 
 FVector UPRNiagaraEffect::GetEffectLocation() const
 {
+	if(NiagaraEffect != nullptr)
+	{
+		return NiagaraEffect->GetComponentLocation();
+	}
+	
 	return Super::GetEffectLocation();
+}
+
+UFXSystemComponent* UPRNiagaraEffect::GetFXSystemComponent() const
+{
+	return NiagaraEffect;
+}
+
+bool UPRNiagaraEffect::IsLooping() const
+{
+	if(NiagaraEffect != nullptr)
+	{
+		return NiagaraEffect->GetAsset()->IsLooping();
+	}
+
+	return false;
 }
 
 UNiagaraComponent* UPRNiagaraEffect::GetNiagaraEffect() const

@@ -47,6 +47,9 @@ void APRBaseWeapon::BeginPlay()
 void APRBaseWeapon::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	// Debug
+	UpdateTraceDebug();
 }
 
 void APRBaseWeapon::InitializeWeapon(APRBaseCharacter* NewPROwner)
@@ -94,6 +97,17 @@ void APRBaseWeapon::Sheath()
 		MainWeapon->AttachToComponent(GetPROwner()->GetMesh(), AttachmentTransformRules, MainWeaponSheathSocketName);
 	}
 }
+
+#pragma region Debug
+void APRBaseWeapon::UpdateTraceDebug()
+{
+}
+
+void APRBaseWeapon::SetActivateTraceDebug(bool bNewActivateTraceDebug)
+{
+	bActivateTraceDebug = bNewActivateTraceDebug;
+}
+#pragma endregion 
 
 #pragma region WeaponInfo
 bool APRBaseWeapon::IsActivate() const

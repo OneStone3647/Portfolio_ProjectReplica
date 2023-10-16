@@ -77,7 +77,7 @@ private:
 	TArray<UAudioComponent*> HitSounds;
 
 	/** Debug 실행여부입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PRJudgementCutArea", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRJudgementCutArea", meta = (AllowPrivateAccess = "true"))
 	bool bActivateDebug;
 
 	/** Target에게 줄 대미지입니다. */

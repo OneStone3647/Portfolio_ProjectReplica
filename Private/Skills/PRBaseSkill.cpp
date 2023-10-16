@@ -65,6 +65,7 @@ void UPRBaseSkill::InitializeSkill_Implementation()
 	{
 		for(FPRPooledObjectInfo ObjectInfo : SkillInfo.ObjectInfos)
 		{
+			// 스킬에서 사용하는 Object의 정보가 있을 경우 Object의 정보를 ObjectPoolSystem에 전달합니다.
 			if(ObjectInfo.PooledObjectClass != nullptr
 				&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(ObjectInfo.ObjectName) == false)
 			{

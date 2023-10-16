@@ -219,6 +219,7 @@ void UPRObjectPoolSystemComponent::InitializeObjectPool()
 		ActivatePoolIndexes.Empty();
 	}
 
+	// ObjectInfo를 바탕으로 ObjectPool 생성
 	if(GetOwner()->GetWorld() != nullptr && PooledObjectInfos.Num() > 0)
 	{
 		for(const auto& PooledObjectInfo : PooledObjectInfos)

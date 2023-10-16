@@ -42,7 +42,6 @@ public:
 	void Deactivate();
 	virtual void Deactivate_Implementation();
 	
-	
 	/** 오브젝트를 초기화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")
 	void InitializePooledObject();

@@ -15,10 +15,6 @@ UPRSkill_Kyle_DodgeAttack::UPRSkill_Kyle_DodgeAttack()
 	
 	// DodgeAttack
 	SkillDurationTime = 2.5f;
-	SkillGauge = 70.0f;
-	SkillGaugeCost = 10.0f;
-	MinSkillGauge = 0.0f;
-	MaxSkillGauge = 70.0f;
 	
 	// PRAnimMontage
 	PRComboAnimMontage = FPRComboAnimMontage();
@@ -39,8 +35,8 @@ void UPRSkill_Kyle_DodgeAttack::InitializeSkill_Implementation()
 			PRComboAnimMontage = FPRComboAnimMontage(GetSkillOwner()->GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByIDRangeToArray(PRComboAnimMontageFromID, PRComboAnimMontageToID));
 		}
 
+		// AnimMontage의 재생 Index를 초기화합니다.
 		PRComboAnimMontage.InitializePlayIndex();
-		SkillGauge = MaxSkillGauge;
 	}
 }
 
@@ -67,15 +63,6 @@ bool UPRSkill_Kyle_DodgeAttack::ActivateSkill_Implementation()
 		GetSkillOwner()->GetStateSystem()->SetActionable(EPRAction::Action_Attack, false);
 		GetSkillOwner()->GetAnimSystem()->PlayPRAnimMontage(PRComboAnimMontage.GetPlayPRAnimMontage());
 		
-		if(SkillGauge - SkillGaugeCost >= 0.0f)
-		{
-			SkillGauge -= SkillGaugeCost;
-		}
-		else
-		{
-			SkillGauge = 0.0f;
-		}
-		
 		// 마지막 ComboAnimMontage일 경우 스킬을 비활성화합니다.
 		if(PRComboAnimMontage.GetPlayIndex() + 1 == PRComboAnimMontage.PRAnimMontages.Num())
 		{
@@ -95,21 +82,8 @@ bool UPRSkill_Kyle_DodgeAttack::ActivateSkill_Implementation()
 bool UPRSkill_Kyle_DodgeAttack::IsCanActivateSkill_Implementation() const
 {
 	return Super::IsCanActivateSkill_Implementation()
-			&& SkillGauge >= 10.0f
 			&& GetSkillOwner()->GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_InAir) == false
 			&& GetSkillOwner()->GetStateSystem()->IsActionable(EPRAction::Action_Attack) == true;
-}
-
-void UPRSkill_Kyle_DodgeAttack::IncreaseSkillGauge(float IncreaseCost)
-{
-	if(SkillGauge + IncreaseCost > MaxSkillGauge)
-	{
-		SkillGauge = MaxSkillGauge;
-	}
-	else
-	{
-		SkillGauge += IncreaseCost;
-	}
 }
 
 void UPRSkill_Kyle_DodgeAttack::SetActivateSkill(bool bNewActivateSkill)
@@ -126,5 +100,14 @@ void UPRSkill_Kyle_DodgeAttack::SetActivateSkill(bool bNewActivateSkill)
 		EndDurationEffect();
 	}
 	
+	InitializeSkill();
+}
+
+void UPRSkill_Kyle_DodgeAttack::EndDurationEffect()
+{
+	Super::EndDurationEffect();
+
+	bActivateSkill = false;
+	GetSkillOwner()->GetStateSystem()->SetActionable(EPRAction::Action_DodgeAttack, false);
 	InitializeSkill();
 }

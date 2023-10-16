@@ -108,9 +108,6 @@ void APRPlayerCharacter_Kyle::StopJumping()
 void APRPlayerCharacter_Kyle::AddPlayerMovementInput(EPRDirection Direction)
 {
 	Super::AddPlayerMovementInput(Direction);
-
-	/** 이동시 회피공격을 종료합니다. */
-	SetActivateDodgeAttack(false);
 }
 #pragma endregion
 

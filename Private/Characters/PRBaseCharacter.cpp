@@ -12,6 +12,7 @@
 #include "Components/PRObjectPoolSystemComponent.h"
 #include "Components/PREffectSystemComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/PRTimeStopSystemComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -155,17 +156,23 @@ void APRBaseCharacter::TakeHit(AActor* DamageCauser)
 {
 	StateSystem->SetIsHit(true);
 
-	// 대미지를 준 액터를 바라봅니다
-	if(IsValid(DamageCauser) == true)
+	// TimeStop 상태가 아닌경우
+	APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(DamageCauser);
+	if(PRPlayerCharacter == nullptr
+		|| PRPlayerCharacter->GetTimeStopSystem()->IsActivateTimeStop() == false)
 	{
-		const FVector DamageCauserReverseForwardVector = DamageCauser->GetActorForwardVector() * -1.0f;
-		const FRotator LookAtRotation = UKismetMathLibrary::MakeRotFromX(DamageCauserReverseForwardVector);
-		SetActorRotation(LookAtRotation);
-
-		APRPlayerCharacter* PRPlayerDamageCauser = Cast<APRPlayerCharacter>(DamageCauser);
-		if(PRPlayerDamageCauser != nullptr)
+		// 대미지를 준 액터를 바라봅니다
+		if(IsValid(DamageCauser) == true)
 		{
-			PRPlayerDamageCauser->ActivateComboCount();
+			const FVector DamageCauserReverseForwardVector = DamageCauser->GetActorForwardVector() * -1.0f;
+			const FRotator LookAtRotation = UKismetMathLibrary::MakeRotFromX(DamageCauserReverseForwardVector);
+			SetActorRotation(LookAtRotation);
+
+			APRPlayerCharacter* PRPlayerDamageCauser = Cast<APRPlayerCharacter>(DamageCauser);
+			if(PRPlayerDamageCauser != nullptr)
+			{
+				PRPlayerDamageCauser->ActivateComboCount();
+			}
 		}
 	}
 

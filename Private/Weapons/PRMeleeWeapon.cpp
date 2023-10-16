@@ -43,9 +43,6 @@ void APRMeleeWeapon::BeginPlay()
 void APRMeleeWeapon::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
-	// Debug
-	UpdateTraceDebug();
 }
 
 #pragma region Debug
@@ -61,11 +58,6 @@ void APRMeleeWeapon::UpdateTraceDebug()
 			}
 		}
 	}
-}
-
-void APRMeleeWeapon::SetActivateTraceDebug(bool bNewActivateTraceDebug)
-{
-	bActivateTraceDebug = bNewActivateTraceDebug;
 }
 #pragma endregion  
 

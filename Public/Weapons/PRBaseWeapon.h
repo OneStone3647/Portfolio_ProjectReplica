@@ -59,6 +59,21 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "PRBaseWeapon")
 	USceneComponent* Root;
 
+#pragma region Debug
+protected:
+	/** 디버그를 최신화하는 함수입니다. */
+	virtual void UpdateTraceDebug();
+
+protected:
+	/** Trace 디버그 활성화를 나타내는 변수입니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "PRBaseWeapon|Debug")
+	bool bActivateTraceDebug;
+
+public:
+	/** 입력받은 인자로 bActivateTraceDebug를 설정하는 함수입니다. */
+	void SetActivateTraceDebug(bool bNewActivateTraceDebug);
+#pragma endregion
+
 #pragma region WeaponInfo
 public:
 	/** 무기의 활성화를 판별하는 함수입니다. */

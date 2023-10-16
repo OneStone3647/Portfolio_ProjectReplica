@@ -29,15 +29,13 @@ public:
 	/** 스킬을 실행할 수 있는지판별하는 함수입니다. */
 	virtual bool IsCanActivateSkill_Implementation() const override;
 
-	/**
-	 * 입력받은 인자 값만틈 SkillGauge를 증가 시키는 함수입니다.
-	 * MaxSkillGauge 이상으로 SkillGauge를 증가 시킬 수 없습니다.
-	 */
-	void IncreaseSkillGauge(float IncreaseCost);
-
 public:
 	/** 입력받은 인자로 bActivateSkill을 설정하는 함수입니다. */
 	virtual void SetActivateSkill(bool bNewActivateSkill) override;
+
+protected:
+	/** 지속효과가 종료되었을 때 실행하는 함수입니다. */
+	virtual void EndDurationEffect() override;
 	
 private:
 	/** 회피 공격 자세의 지속시간에 사용하는 TimerHandle입니다. */

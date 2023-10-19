@@ -81,16 +81,16 @@ void UPRObjectPoolSystemComponent::CreateObjectPool(FPRPooledObjectInfo PooledOb
 			}
 		}
 
-		ObjectPool.Emplace(PooledObjectInfo.ObjectName, NewObjectPool);
+		ObjectPool.Emplace(PooledObjectInfo.PooledObjectClass, NewObjectPool);
 	}
 }
 
-APRPooledObject* UPRObjectPoolSystemComponent::ActivatePooledObject(FName NewObjectName)
+APRPooledObject* UPRObjectPoolSystemComponent::ActivatePooledObject(TSubclassOf<APRPooledObject> NewObjectPool)
 {
-	// 오브젝트 풀에서 실행할 오브젝트의 이름을 가진 오브젝트 그룹을 탐색합니다.
+	// 오브젝트 풀에서 실행할 오브젝트를 가진 오브젝트 그룹을 탐색합니다.
 	for(auto& PooledObjects : ObjectPool)
 	{
-		if(PooledObjects.Key == NewObjectName)
+		if(PooledObjects.Key == NewObjectPool)
 		{
 			// 활성화되지 않은 오브젝트를 찾아 활성화합니다.
 			for(auto& ActivateableObject : PooledObjects.Value.Objects)
@@ -99,11 +99,11 @@ APRPooledObject* UPRObjectPoolSystemComponent::ActivatePooledObject(FName NewObj
 				{
 					ActivateableObject->Activate();
 					// 처음 활성화하는 오브젝트의 경우 맵을 새로 추가합니다.
-					if(ActivatePoolIndexes.Contains(NewObjectName) == false)
+					if(ActivatePoolIndexes.Contains(NewObjectPool) == false)
 					{
-						ActivatePoolIndexes.Add(NewObjectName);
+						ActivatePoolIndexes.Add(NewObjectPool);
 					}
-					ActivatePoolIndexes.Find(NewObjectName)->ActivateIndexes.Add(ActivateableObject->GetPoolIndex());
+					ActivatePoolIndexes.Find(NewObjectPool)->ActivateIndexes.Add(ActivateableObject->GetPoolIndex());
 
 					return ActivateableObject;
 				}
@@ -120,7 +120,7 @@ APRPooledObject* UPRObjectPoolSystemComponent::ActivatePooledObject(FName NewObj
 		for(auto& ActivatePoolIndex : ActivatePoolIndexes)
 		{
 			// 가장 먼저 활성화된 오브젝트의 Index를 제거합니다.
-			if(ActivatePoolIndex.Key == NewObjectName
+			if(ActivatePoolIndex.Key == NewObjectPool
 				&& ActivatePoolIndex.Value.ActivateIndexes.IsValidIndex(0) == true)
 			{
 				const int32 PooledObjectIndex = ActivatePoolIndex.Value.ActivateIndexes[0];
@@ -129,7 +129,7 @@ APRPooledObject* UPRObjectPoolSystemComponent::ActivatePooledObject(FName NewObj
 				// 가장 먼저 활성화된 오브젝트를 비활성화하고 다시 활성화하고 반환합니다.				
 				for(auto& PooledObjects : ObjectPool)
 				{
-					if(PooledObjects.Key == NewObjectName
+					if(PooledObjects.Key == NewObjectPool
 						&& PooledObjects.Value.Objects.IsValidIndex(PooledObjectIndex) == true)
 					{
 						APRPooledObject* NewPooledObject = PooledObjects.Value.Objects[PooledObjectIndex];
@@ -158,7 +158,7 @@ void UPRObjectPoolSystemComponent::OnPooledObjectDeactivate(APRPooledObject* Poo
 {
 	for(auto& ActivatePoolIndex : ActivatePoolIndexes)
 	{
-		if(ActivatePoolIndex.Key == PooledObject->GetObjectName())
+		if(ActivatePoolIndex.Key == PooledObject->GetClass())
 		{
 			ActivatePoolIndex.Value.ActivateIndexes.Remove(PooledObject->GetPoolIndex());
 			return;
@@ -170,7 +170,7 @@ bool UPRObjectPoolSystemComponent::IsActivatePooledObject(APRPooledObject* Poole
 {
 	for(auto& ActivatePoolIndex : ActivatePoolIndexes)
 	{
-		if(ActivatePoolIndex.Key == PooledObject->GetObjectName())
+		if(ActivatePoolIndex.Key == PooledObject->GetClass())
 		{
 			for(const auto& Index : ActivatePoolIndex.Value.ActivateIndexes)
 			{
@@ -187,9 +187,9 @@ bool UPRObjectPoolSystemComponent::IsActivatePooledObject(APRPooledObject* Poole
 	return false;
 }
 
-bool UPRObjectPoolSystemComponent::IsCreatePooledObject(FName ObjectPoolName)
+bool UPRObjectPoolSystemComponent::IsCreatePooledObject(TSubclassOf<APRPooledObject> NewObjectPool)
 {
-	return ObjectPool.Contains(ObjectPoolName);
+	return ObjectPool.Contains(NewObjectPool);
 }
 
 void UPRObjectPoolSystemComponent::AddPooledObjectInfo(FPRPooledObjectInfo NewPooledObjectInfo)

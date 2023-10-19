@@ -117,10 +117,10 @@ public:
 	/** 인자로 받은 정보를 바탕으로 오브젝트 풀을 생성하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
 	void CreateObjectPool(FPRPooledObjectInfo PooledObjectInfo);
-	
-	/** 풀에서 오브젝트 이름에 해당하는 오브젝트를 활성화하는 함수입니다. */
+
+	/** 풀에서 인자로 받은 오브젝트에 해당하는 오브젝트를 활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
-	APRPooledObject* ActivatePooledObject(FName NewObjectName);
+	APRPooledObject* ActivatePooledObject(TSubclassOf<APRPooledObject> NewObjectPool);
 
 	/** 인자로 받은 풀 오브젝트를 비활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category  = "ObjectPoolSystem")
@@ -130,9 +130,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category  = "ObjectPoolSystem")
 	bool IsActivatePooledObject(class APRPooledObject* PooledObject);
 
-	/** 인자로 받은 이름으로 생성된 오브젝트 풀이 있는지 판별하는 함수입니다. */
+	/** 인자로 받은 오브젝트로 생성된 오브젝트 풀이 있는지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category  = "ObjectPoolSystem")
-	bool IsCreatePooledObject(FName ObjectPoolName);
+	bool IsCreatePooledObject(TSubclassOf<APRPooledObject> NewObjectPool);
 
 	/** 입력받은 인자를 PooledObjectInfos Array에 추가하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
@@ -153,12 +153,12 @@ protected:
 	TArray<FPRPooledObjectInfo> PooledObjectInfos;
 
 	/** 오브젝트 풀입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "ObjectPoolSystem")
-	TMap<FName, FPRObjectPool> ObjectPool;
-
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem")
+	TMap<TSubclassOf<APRPooledObject>, FPRObjectPool> ObjectPool;
+	
 	/** 활성화한 오브젝트의 Index입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "ObjectPoolSystem")
-	TMap<FName, FPRPoolIndex> ActivatePoolIndexes;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem")
+	TMap<TSubclassOf<APRPooledObject>, FPRPoolIndex> ActivatePoolIndexes;
 
 	/** TimeStop을 무시하고 Object를 실행하는지 나타내는 변수입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))

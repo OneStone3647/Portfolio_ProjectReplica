@@ -18,6 +18,7 @@ class APRBaseInteractableObject;
 class APRBaseSkill;
 class UPRTestEffectSystemComponent;
 class USphereComponent;
+class APRPooledObject;
 
 enum class EPRCommandSkill : uint8;
 
@@ -33,6 +34,9 @@ enum class EPRSkillPaletteSlot : uint8
 	SkillPaletteSlot_Down			UMETA(Display = "DownSlot")
 };
 
+/**
+ * 카메라의 PostProcessMaterial을 나타내는 열거형입니다.
+ */
 UENUM(BlueprintType)
 enum class EPRCameraPostProcessMaterial : uint8
 {
@@ -473,9 +477,6 @@ private:
 	USphereComponent* ExtremeDodgeArea;
 
 public:
-	/** 입력 받은 인자로 bExtremeDodge를 설정하는 함수입니다. */
-	void SetActivateExtremeDodge(bool bNewActivateExtremeDodge);
-
 	/** ExtremeDodgeArea 반환하는 함수입니다. */
 	USphereComponent* GetExtremeDodgeArea() const { return ExtremeDodgeArea; }
 #pragma endregion
@@ -527,6 +528,11 @@ public:
 	/** AfterImage를 실행하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "Effect|AfterImage")
 	void ActivateAfterImage();
+
+protected:
+	/** 잔상 오브젝트입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effect|AfterImage")
+	TSubclassOf<APRPooledObject> AfterImage;
 #pragma endregion
 
 #pragma region SkillPalette

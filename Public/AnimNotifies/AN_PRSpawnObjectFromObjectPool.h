@@ -6,6 +6,8 @@
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "AN_PRSpawnObjectFromObjectPool.generated.h"
 
+class APRPooledObject;
+
 /**
  * 방향을 나타내는 열거형입니다. 
  */
@@ -33,18 +35,14 @@ protected:
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation) override;
 
 private:
-	/** PooledObject)를 Spawn할 위치를 설정하는 함수입니다. */
-	// void SetPooledObjectSpawnLocation(AActor* NewPooledObject);
-
-private:
 	/** ObjectSystem을 가지고 있는 액터입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem", meta = (AllowPrivateAccess = "true"))
 	AActor* ObjectPoolSystemOwner;
 
-	/** Spawn할 PooledObject의 이름입니다. */
+	/** Spawn할 PooledObject입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem", meta = (AllowPrivateAccess = "true"))
-	FName SpawnPooledObjectName;
-
+	TSubclassOf<APRPooledObject> SpawnPooledObject;
+	
 	/** PooledObject를 Spawn할 위치입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem", meta = (AllowPrivateAccess = "true"))
 	EPRSpawnLocation SpawnLocation;

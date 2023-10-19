@@ -110,6 +110,8 @@ APRPlayerCharacter::APRPlayerCharacter()
 	SignatureEffectColor = FLinearColor(20.0f, 15.0f, 200.0f, 1.0f);
 	// Effect|DoubleJump
 	DoubleJumpNiagaraEffect = nullptr;
+	// Effect|AfterImage
+	AfterImage = nullptr;
 	
 	// SkillPalette
 	bIsOpenSkillPalette = false;
@@ -1140,7 +1142,7 @@ void APRPlayerCharacter::IncreasePlayNormalAttackIndex()
 #pragma region Effect
 void APRPlayerCharacter::ActivateAfterImage()
 {
-	GetObjectPoolSystem()->ActivatePooledObject("AfterImage");
+	GetObjectPoolSystem()->ActivatePooledObject(AfterImage);
 }
 #pragma endregion 
 

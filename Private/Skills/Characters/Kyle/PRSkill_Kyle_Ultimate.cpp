@@ -101,7 +101,7 @@ void UPRSkill_Kyle_Ultimate::ActivateGeneralUltimate()
 	UPRObjectPoolSystemComponent* ObjectPoolSystem = GetSkillOwner()->GetObjectPoolSystem();
 	if(ObjectPoolSystem != nullptr)
 	{
-		ObjectPoolSystem->ActivatePooledObject(GeneralUltimateObjectName);
+		// ObjectPoolSystem->ActivatePooledObject(GeneralUltimateObjectName);
 	}
 
 	GetWorld()->GetTimerManager().SetTimer(FinishGeneralUltimateTimerHandle, this, &UPRSkill_Kyle_Ultimate::FinishGeneralUltimate, GeneralUltimateFinishTime, false);

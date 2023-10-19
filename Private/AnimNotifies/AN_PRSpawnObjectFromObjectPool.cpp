@@ -12,7 +12,7 @@ UAN_PRSpawnObjectFromObjectPool::UAN_PRSpawnObjectFromObjectPool()
 
 	// ObjectPoolSystem
 	ObjectPoolSystemOwner = nullptr;
-	SpawnPooledObjectName = FName();
+	SpawnPooledObject = nullptr;
 	SpawnLocation = EPRSpawnLocation::SpawnLocation_None;
 	SpawnCustomLocation = FVector::ZeroVector;
 }
@@ -27,7 +27,7 @@ void UAN_PRSpawnObjectFromObjectPool::Notify(USkeletalMeshComponent* MeshComp, U
 		UPRObjectPoolSystemComponent* ObjectPoolSystem = ObjectPoolSystemOwner->FindComponentByClass<UPRObjectPoolSystemComponent>();
 		if(ObjectPoolSystem != nullptr)
 		{
-			ObjectPoolSystem->ActivatePooledObject(SpawnPooledObjectName);
+			ObjectPoolSystem->ActivatePooledObject(SpawnPooledObject);
 		}
 	}
 }

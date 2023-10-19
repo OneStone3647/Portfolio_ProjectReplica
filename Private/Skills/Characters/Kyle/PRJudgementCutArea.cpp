@@ -7,6 +7,7 @@
 #include "Characters/PRBaseCharacter.h"
 #include "Characters/PRPlayerCharacter.h"
 #include "Components/AudioComponent.h"
+#include "Components/PRMovementSystemComponent.h"
 #include "Components/PRTargetingSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -145,8 +146,17 @@ void APRJudgementCutArea::InitializeSpawnLocation_Implementation()
 					return;
 				}
 			}
-			
-			SetActorLocation(FindFloorLocation(GetObjectOwner()) + (GetObjectOwner()->GetActorForwardVector() * DefaultSpawnDistance));
+
+			if(PRPlayerCharacter->GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_InAir) == true)
+			{
+				// PlayerCharacter가 공중에 존재할 경우
+				SetActorLocation(PRPlayerCharacter->GetActorLocation() + GetObjectOwner()->GetActorForwardVector() * DefaultSpawnDistance);
+			}
+			else
+			{
+				// PlayerCharacter가 공중에 존재하지 않을 경우
+				SetActorLocation(FindFloorLocation(GetObjectOwner()) + (GetObjectOwner()->GetActorForwardVector() * DefaultSpawnDistance));
+			}
 		}
 	}
 }

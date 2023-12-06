@@ -53,6 +53,10 @@ public:
 	/** 무기를 납도하여 SheathSocketName에 해당하는 Socket에 부착하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRBaseWeapon")
 	virtual void Sheath();
+
+	/** 무기의 Visibility를 설정하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRBaseWeapon")
+	void SetVisibility(bool bNewVisibility);
 	
 protected:
 	/** 이 Actor의 RootComponent입니다. */

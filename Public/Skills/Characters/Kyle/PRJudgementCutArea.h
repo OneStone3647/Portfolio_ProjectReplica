@@ -24,7 +24,7 @@ protected:
 	virtual void BeginPlay() override;
 	
 protected:
-	virtual void UpdatePooledObject_Implementation(float DeltaTime) override;
+	// virtual void UpdatePooledObject_Implementation(float DeltaTime) override;
 	virtual void InitializeSpawnLocation_Implementation() override;
 	virtual void Activate_Implementation() override;
 
@@ -33,7 +33,7 @@ protected:
 	void ActivateDamageArea();
 
 	/** DamageArea를 최신화하는 함수입니다. */
-	void UpdateDamageArea(float DeltaTime);
+	// void UpdateDamageArea(float DeltaTime);
 	
 	/** Target의 바닥의 위치를 반환하는 함수입니다. */
 	FVector FindFloorLocation(AActor* Target) const;
@@ -96,9 +96,9 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRJudgementCutArea", meta = (AllowPrivateAccess = "true"))
 	bool bActivateDamageArea;
 
-	/** 재사용 대기시간의 경과 시간입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRJudgementCutArea", Transient, meta = (AllowPrivateAccess = "true"))
-	float CooldownElapsed;
+	// /** 재사용 대기시간의 경과 시간입니다. */
+	// UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRJudgementCutArea", Transient, meta = (AllowPrivateAccess = "true"))
+	// float CooldownElapsed;
 
 	/** DamageArea에 존재하는 Target들에게 대미지를 입일 최대 횟수입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PRJudgementCutArea", meta = (AllowPrivateAccess = "true"))
@@ -127,4 +127,7 @@ private:
 	/** Target을 끌어당기는 힘입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PRJudgementCutArea", meta = (AllowPrivateAccess = "true"))
 	float TargetPullForce;
+
+	// DamageArea를 활성화하는 TimerHandle입니다. 
+	FTimerHandle DamageAreaTimerHandle;
 };

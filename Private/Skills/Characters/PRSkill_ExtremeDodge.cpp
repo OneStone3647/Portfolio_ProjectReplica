@@ -26,7 +26,16 @@ bool UPRSkill_ExtremeDodge::ActivateSkill_Implementation()
 
 bool UPRSkill_ExtremeDodge::IsCanActivateSkill_Implementation() const
 {
+	// ExtremeDodgeArea가 활성화되어 ExtremeDodge를 실행할 수 있는지 판별합니다.
+	bool bIsCanExtremeDodge = false;
+	APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(GetSkillOwner());
+	if(PRPlayerCharacter != nullptr)
+	{
+		bIsCanExtremeDodge = PRPlayerCharacter->IsActivateExtremeDodgeArea();
+	}
+	
 	return Super::IsCanActivateSkill_Implementation()
+			&& bIsCanExtremeDodge
 			&& GetSkillOwner()->GetStateSystem()->IsDead() == false
 			&& GetSkillOwner()->GetStateSystem()->IsInvincible() == true;
 }

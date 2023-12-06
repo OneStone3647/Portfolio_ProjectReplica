@@ -40,21 +40,27 @@ public:
 	 * WeaponInventory에서 인자로 받은 Index 값에 해당하는 무기를 발도하는 함수입니다.
 	 *
 	 * @param DrawWeaponIndex 발도할 무기의 Index 값입니다.
+	 * @return 발도한 무기입니다.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
-	void DrawWeapon(int32 DrawWeaponIndex = 0);
+	APRBaseWeapon* DrawWeapon(int32 DrawWeaponIndex = 0);
 
 	/**
 	 * WeaponInventory에서 인자로 받은 Index 값에 해당하는 무기를 납도하는 함수입니다.
 	 *
 	 * @param SheathWeaponIndex 납도할 무기의 Index 값입니다.
+	 * @return 납도한 무기입니다.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
-	void SheathWeapon(int32 SheathWeaponIndex = 0);
+	APRBaseWeapon* SheathWeapon(int32 SheathWeaponIndex = 0);
 
 	/** 현재 장비한 무기를 반환하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
 	APRBaseWeapon* GetEquippedWeapon() const;
+
+	/** 입력받은 인자가 WeaponInventory에서 유효한 Index인지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
+	bool IsValidWeaponIndex(int32 NewWeaponIndex);
 
 protected:
 	/**

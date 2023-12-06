@@ -4,6 +4,7 @@
 
 #include "ProjectReplica.h"
 #include "Skills/PRCooldownSkill.h"
+#include "Components/PRObjectPoolSystemComponent.h"
 #include "PRSkill_Kyle_JudgementCut.generated.h"
 
 /**
@@ -30,6 +31,11 @@ public:
 
 	/** 스킬을 실행할 수 있는지 판별하는 함수입니다. */
 	virtual bool IsCanActivateSkill_Implementation() const override;
+
+private:
+	/** 일정 범위에 대미지를 가하는 오브젝트의 정보입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectInfo", meta = (AllowPrivateAccess = "true"))
+	FPRPooledObjectInfo JudgementCutArea;
 
 #pragma region Cooldown
 public:

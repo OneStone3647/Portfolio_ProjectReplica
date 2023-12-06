@@ -10,13 +10,14 @@
 #include "Components/PRSkillSystemComponent.h"
 #include "Components/PRTimeStopSystemComponent.h"
 #include "Components/PREffectSystemComponent.h"
+#include "Components/PRObjectPoolSystemComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Effect/PRAfterImage.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "NiagaraComponent.h"
+#include "ProjectReplicaGameMode.h"
 #include "PRPlayerController.h"
 #include "Components/ArrowComponent.h"
 #include "Effect/PRNiagaraEffect.h"
@@ -28,6 +29,8 @@
 #include "Skills/PRBaseSkill.h"
 #include "Weapons/PRBaseWeapon.h"
 #include "Components/SphereComponent.h"
+#include "CinematicCamera/Public/CineCameraComponent.h"
+#include "Components/SceneCaptureComponent2D.h"
 
 APRPlayerCharacter::APRPlayerCharacter()
 {
@@ -59,11 +62,24 @@ APRPlayerCharacter::APRPlayerCharacter()
 	FollowCamera->bUsePawnControlRotation = false;									// 카메라가 SpringArm을 기준으로 회전하지 않습니다.
 	FollowCamera->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
 
+	// SkillCamera
+	SkillCamera = CreateDefaultSubobject<UCineCameraComponent>(TEXT("SkillCamera"));
+	SkillCamera->SetupAttachment(RootComponent);
+	SkillCamera->SetConstraintAspectRatio(false);
+
+	// SceneCapture
+	SceneCapture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("SceneCapture"));
+	SceneCapture->SetupAttachment(FollowCamera);
+	SceneCapture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
+	SceneCapture->bCaptureEveryFrame = false;
+	SceneCapture->bCaptureOnMovement = false;
+
 	// ResetCameraPosition
 	ResetCameraPositionArrow = CreateDefaultSubobject<UArrowComponent>(TEXT("ResetCameraPositionArrow"));
 	ResetCameraPositionArrow->SetupAttachment(RootComponent);
 	
 	// Camera
+	bLockCamera = false;
 	bTurnMoveCamera = false;
 	bLookUpMoveCamera = false;
 	bTurnRateMoveCamera = false;
@@ -71,14 +87,12 @@ APRPlayerCharacter::APRPlayerCharacter()
 	BaseTurnRate = 45.0f;
 	BaseLookUpRate = 45.0f;
 	ResetCameraFloatCurve = nullptr;
-	// MonochromeColorSaturation = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
-	// MonochromeColorGamma = FVector4(0.7f, 0.7f, 0.7f, 1.0f);
 	MonochromeFloatCurve = nullptr;
 	MonochromeMode = EPRCameraPostProcessMaterial::CameraPostProcessMaterial_None;
 
 	// MovementInput
+	bLockMovementInput = false;
 	DoubleJumpAnimMontage = nullptr;
-	// bDoubleJumpable = true;
 	MinRunInputAxis = 0.42f;
 	bWalkToggleInput = false;
 	bSprintInput = false;
@@ -86,14 +100,14 @@ APRPlayerCharacter::APRPlayerCharacter()
 	SprintableHoldTime = 0.3f;
 
 	// ObjectPoolSystem
-	GetObjectPoolSystem()->SetIgnoreTimeStop(true);
+	// GetObjectPoolSystem()->SetIgnoreTimeStop(true);
 
 	// TargetingSystem
 	TargetingSystem = CreateDefaultSubobject<UPRTargetingSystemComponent>(TEXT("TargetingSystem"));
 	bReadyToChangeTarget = false;
 
 	// TimeStopSystem
-	TimeStopSystem = CreateDefaultSubobject<UPRTimeStopSystemComponent>(TEXT("TimeStopSystem"));
+	// TimeStopSystem = CreateDefaultSubobject<UPRTimeStopSystemComponent>(TEXT("TimeStopSystem"));
 
 	// Dodge
 	ExtremeDodgeArea = CreateDefaultSubobject<USphereComponent>(TEXT("ExtremeDodgeArea"));
@@ -127,6 +141,14 @@ APRPlayerCharacter::APRPlayerCharacter()
 void APRPlayerCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+
+	// TimeStopSystem
+	// GetTimeStopSystem()->OnDeactivateTimeStop.AddDynamic(this, &APRPlayerCharacter::OnDeactivateTimeStop);
+	AProjectReplicaGameMode* PRGameMode = Cast<AProjectReplicaGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	if(IsValid(PRGameMode) == true)
+	{
+		PRGameMode->GetTimeStopSystem()->OnDeactivateTimeStop.AddDynamic(this, &APRPlayerCharacter::APRPlayerCharacter::OnDeactivateTimeStop);
+	}
 }
 
 void APRPlayerCharacter::BeginPlay()
@@ -151,14 +173,8 @@ void APRPlayerCharacter::BeginPlay()
 		GetStateSystem()->SetActionable(EPRAction::Action_Attack, true);
 	}
 
-	// TimeStopSystem
-	// GetTimeStopSystem()->OnActivateTimeStop.AddDynamic(GetEffectSystem(), &UPREffectSystemComponent::SetActivateTimeStop);
-	// GetTimeStopSystem()->OnDeactivateTimeStop.AddDynamic(this, &APRPlayerCharacter::ActivateTimeStop);
-	// GetTimeStopSystem()->OnActivateTimeStop.AddDynamic(this, &APRPlayerCharacter::ActivateWorldCameraMonochrome);
-	GetTimeStopSystem()->OnDeactivateTimeStop.AddDynamic(this, &APRPlayerCharacter::DeactivateTimeStop);
-
-	//EffectSystem
-	GetEffectSystem()->SetIgnoreTimeStop(true);
+	// //EffectSystem
+	// GetEffectSystem()->SetIgnoreTimeStop(true);
 }
 
 void APRPlayerCharacter::Tick(float DeltaTime)
@@ -227,7 +243,8 @@ void APRPlayerCharacter::Landed(const FHitResult& Hit)
 
 float APRPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,	AActor* DamageCauser)
 {
-	if(GetSkillSystem()->GetSkillFromCommand(EPRCommandSkill::CommandSkill_ExtremeDodge) != nullptr)
+	UPRBaseSkill* ExtremeDodge = GetSkillSystem()->GetSkillFromCommand(EPRCommandSkill::CommandSkill_ExtremeDodge);
+	if(ExtremeDodge != nullptr && ExtremeDodge->IsCanActivateSkill() == true)
 	{
 		GetSkillSystem()->GetSkillFromCommand(EPRCommandSkill::CommandSkill_ExtremeDodge)->ActivateSkill();
 	}
@@ -236,6 +253,16 @@ float APRPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Dam
 }
 
 #pragma region Camera
+bool APRPlayerCharacter::bIsLockCamera() const
+{
+	return bLockCamera;
+}
+
+void APRPlayerCharacter::SetLockCamera(bool bNewLockCamera)
+{
+	bLockCamera = bNewLockCamera;
+}
+
 bool APRPlayerCharacter::IsMoveCamera() const
 {
 	return bTurnMoveCamera || bLookUpMoveCamera || bTurnRateMoveCamera || bLookUpRateMoveCamera;
@@ -245,49 +272,6 @@ void APRPlayerCharacter::ActivateResetCamera()
 {
 	ResetCameraTimeline.PlayFromStart();
 }
-
-// void APRPlayerCharacter::ActivateWorldCameraMonochrome(bool bActivate)
-// {
-// 	if(GetFollowCamera() != nullptr)
-// 	{
-// 		// 채도는 카메라의 포스트 프로세스 머티리얼에서 설정합니다.
-// 		FPostProcessSettings NewPostProcessSettings = GetFollowCamera()->PostProcessSettings;
-// 		if(bActivate)
-// 		{
-// 			// 화면을 흑백으로 설정합니다.
-// 			// NewPostProcessSettings.ColorSaturation = MonochromeColorSaturation;
-// 			// NewPostProcessSettings.ColorGamma = MonochromeColorGamma;
-//
-// 			for(auto& PostProcessMaterial : NewPostProcessSettings.WeightedBlendables.Array)
-// 			{
-// 				PostProcessMaterial.Weight = 1.0f;
-// 			}
-// 		}
-// 		else
-// 		{
-// 			// 화면을 원래대로 설정합니다.
-// 			// NewPostProcessSettings.ColorSaturation = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-// 			// NewPostProcessSettings.ColorGamma = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-//
-// 			for(auto& PostProcessMaterial : NewPostProcessSettings.WeightedBlendables.Array)
-// 			{
-// 				PostProcessMaterial.Weight = 0.0f;
-// 			}
-// 		}
-// 		
-// 		// 변경된 설정을 적용합니다.
-// 		GetFollowCamera()->PostProcessSettings = NewPostProcessSettings;
-// 	}
-// }
-//
-// void APRPlayerCharacter::ActivateWorldCameraMonochrome(EPRCameraPostProcessMaterial PostProcessMaterial, float Value)
-// {
-// }
-//
-// void APRPlayerCharacter::ActivateWorldCameraMonochromeLerp(EPRCameraPostProcessMaterial PostProcessMaterial, bool bReversePlay)
-// {
-// 	
-// }
 
 void APRPlayerCharacter::InitializeMonochromeMode()
 {
@@ -334,11 +318,11 @@ void APRPlayerCharacter::ActivateMonochromeMode(EPRCameraPostProcessMaterial Cam
 	{
 		if(bReverse)
 		{
-			SetPostProcessMaterialWeight(CameraPostProcessMaterial, 0.0f);
+			SetPostProcessMaterialWeight(MonochromeMode, 0.0f);
 		}
 		else
 		{
-			SetPostProcessMaterialWeight(CameraPostProcessMaterial, 1.0f);
+			SetPostProcessMaterialWeight(MonochromeMode, 1.0f);
 		}
 	}
 }
@@ -349,9 +333,25 @@ void APRPlayerCharacter::DeactivateMonochromeMode(EPRCameraPostProcessMaterial C
 	MonochromeMode = EPRCameraPostProcessMaterial::CameraPostProcessMaterial_None;
 }
 
+void APRPlayerCharacter::ActivateSkillCamera()
+{
+	SkillCamera->Activate();
+	FollowCamera->Deactivate();
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	PlayerController->SetViewTargetWithBlend(this, 0.2f, EViewTargetBlendFunction::VTBlend_EaseInOut, 10.0f, false);
+}
+
+void APRPlayerCharacter::DeactivateSkillCamera()
+{
+	SkillCamera->Deactivate();
+	FollowCamera->Activate();
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	PlayerController->SetViewTargetWithBlend(this, 0.2f, EViewTargetBlendFunction::VTBlend_EaseInOut, 1.0f, false);
+}
+
 void APRPlayerCharacter::Turn(float Value)
 {
-	if(Value != 0.0f)
+	if(Value != 0.0f && bIsLockCamera() == false)
 	{
 		TargetingSystem->SetActivateDynamicCameraLock(false);
 
@@ -376,7 +376,7 @@ void APRPlayerCharacter::Turn(float Value)
 
 void APRPlayerCharacter::LookUp(float Value)
 {
-	if(Value != 0.0f)
+	if(Value != 0.0f && bIsLockCamera() == false)
 	{
 		TargetingSystem->SetActivateDynamicCameraLock(false);
 
@@ -397,7 +397,7 @@ void APRPlayerCharacter::LookUp(float Value)
 
 void APRPlayerCharacter::TurnRate(float Rate)
 {
-	if(Rate != 0.0f)
+	if(Rate != 0.0f && bIsLockCamera() == false)
 	{
 		TargetingSystem->SetActivateDynamicCameraLock(false);
 
@@ -422,7 +422,7 @@ void APRPlayerCharacter::TurnRate(float Rate)
 
 void APRPlayerCharacter::LookUpRate(float Rate)
 {
-	if(Rate != 0.0f)
+	if(Rate != 0.0f && bIsLockCamera() == false)
 	{
 		TargetingSystem->SetActivateDynamicCameraLock(false);
 
@@ -514,6 +514,16 @@ void APRPlayerCharacter::MonochromeModeLerp(float Value)
 #pragma endregion 
 
 #pragma region MovementInput
+bool APRPlayerCharacter::IsLockMovementInput() const
+{
+	return bLockMovementInput;
+}
+
+void APRPlayerCharacter::SetLockMovementInput(bool bNewLockMovementInput)
+{
+	bLockMovementInput = bNewLockMovementInput;
+}
+
 bool APRPlayerCharacter::IsMoveInput() const
 {
 	return (GetMoveForward() != 0.0f || GetMoveRight() != 0.0f) ? true : false;
@@ -574,32 +584,35 @@ float APRPlayerCharacter::GetMoveRight() const
 
 void APRPlayerCharacter::Jump()
 {
-	Super::Jump();
-
-	// 캐릭터가 지상에 있을 경우 현재 재생중인 PRAnimMontage를 정지합니다.
-	if(GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_Grounded) == true)
+	if(IsLockMovementInput() == false)
 	{
-		GetAnimSystem()->StopPRAnimMontage();
-	}
-	// PRAnimMontage 정지로 인한 State를 초기화합니다.
-	GetStateSystem()->SetActionable(EPRAction::Action_Move, true);
-	GetStateSystem()->SetActionable(EPRAction::Action_Attack, true);
-	GetStateSystem()->SetActionable(EPRAction::Action_Dodge, true);
-	// GetWeaponSystem()->SetEquippedWeaponGroupAttackPRAnimMontageIndex(0);
+		Super::Jump();
 
-	// 현재 사용하는 무기가 발도 상태면 무기를 납도합니다.
-	if(IsValid(GetWeaponSystem()->GetEquippedWeapon()) == true && GetWeaponSystem()->GetEquippedWeapon()->IsDraw() == true)
-	{
-		GetWeaponSystem()->GetEquippedWeapon()->Sheath();
-	}
+		// 캐릭터가 지상에 있을 경우 현재 재생중인 PRAnimMontage를 정지합니다.
+		if(GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_Grounded) == true)
+		{
+			GetAnimSystem()->StopPRAnimMontage();
+		}
+		// PRAnimMontage 정지로 인한 State를 초기화합니다.
+		GetStateSystem()->SetActionable(EPRAction::Action_Move, true);
+		GetStateSystem()->SetActionable(EPRAction::Action_Attack, true);
+		GetStateSystem()->SetActionable(EPRAction::Action_Dodge, true);
+		// GetWeaponSystem()->SetEquippedWeaponGroupAttackPRAnimMontageIndex(0);
 
-	// 일반 공격 Index를 초기화합니다.
-	InitializePlayNormalAttackIndex();
+		// 현재 사용하는 무기가 발도 상태면 무기를 납도합니다.
+		if(IsValid(GetWeaponSystem()->GetEquippedWeapon()) == true && GetWeaponSystem()->GetEquippedWeapon()->IsDraw() == true)
+		{
+			GetWeaponSystem()->GetEquippedWeapon()->Sheath();
+		}
+
+		// 일반 공격 Index를 초기화합니다.
+		InitializePlayNormalAttackIndex();
 	
-	if(GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_InAir) == true
-		&& GetStateSystem()->IsActionable(EPRAction::Action_DoubleJump) == true)
-	{
-		DoubleJump();
+		if(GetMovementSystem()->IsEqualMovementState(EPRMovementState::MovementState_InAir) == true
+			&& GetStateSystem()->IsActionable(EPRAction::Action_DoubleJump) == true)
+		{
+			DoubleJump();
+		}
 	}
 }
 
@@ -666,7 +679,8 @@ void APRPlayerCharacter::DoubleJump()
 
 void APRPlayerCharacter::MoveForward(float Value)
 {
-	if(Controller != nullptr && Value != 0.0f && GetStateSystem()->IsActionable(EPRAction::Action_Move) == true)
+	if(Controller != nullptr && Value != 0.0f && IsLockMovementInput() == false
+		&& GetStateSystem()->IsActionable(EPRAction::Action_Move) == true)
 	{
 		if(GetAnimSystem()->IsPlayPRAnimMontage() == true && GetStateSystem()->IsCanCancelAction() == true)
 		{
@@ -679,7 +693,8 @@ void APRPlayerCharacter::MoveForward(float Value)
 
 void APRPlayerCharacter::MoveRight(float Value)
 {
-	if(Controller != nullptr && Value != 0.0f && GetStateSystem()->IsActionable(EPRAction::Action_Move) == true)
+	if(Controller != nullptr && Value != 0.0f && IsLockMovementInput() == false
+		&& GetStateSystem()->IsActionable(EPRAction::Action_Move) == true)
 	{
 		if(GetAnimSystem()->IsPlayPRAnimMontage() == true && GetStateSystem()->IsCanCancelAction() == true)
 		{
@@ -847,19 +862,48 @@ void APRPlayerCharacter::Walk()
 #pragma endregion
 
 #pragma region TimeStopSystem
-void APRPlayerCharacter::ActivateTimeStop(float TimeStopDuration)
+void APRPlayerCharacter::ActivateTimeStop(float TimeStopDuration, EPRCameraPostProcessMaterial NewMonochromeMode)
 {
-	ActivateMonochromeMode(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_TimeStop, true, false);
-	GetEffectSystem()->SetActivateTimeStop(true);
-	GetObjectPoolSystem()->SetActivateTimeStop(true);
-	GetTimeStopSystem()->ActivateTimeStop(TimeStopDuration);
+	ActivateMonochromeMode(NewMonochromeMode, true, false);
+	// GetEffectSystem()->SetActivateTimeStop(true);
+	// GetObjectPoolSystem()->SetActivateTimeStop(true);
+	// GetTimeStopSystem()->ActivateTimeStop(TimeStopDuration);
+	AProjectReplicaGameMode* PRGameMode = Cast<AProjectReplicaGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	if(IsValid(PRGameMode) == true)
+	{
+		PRGameMode->ActivateTimeStop(TimeStopDuration);
+	}
 }
 
 void APRPlayerCharacter::DeactivateTimeStop()
 {
-	ActivateMonochromeMode(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_TimeStop, true, true);
-	GetObjectPoolSystem()->SetActivateTimeStop(false);
-	GetEffectSystem()->SetActivateTimeStop(false);
+	OnDeactivateTimeStop();
+	// GetTimeStopSystem()->DeactivateTimeStop();
+	AProjectReplicaGameMode* PRGameMode = Cast<AProjectReplicaGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	if(IsValid(PRGameMode) == true)
+	{
+		PRGameMode->DeactivateTimeStop();
+	}
+}
+
+void APRPlayerCharacter::OnDeactivateTimeStop()
+{
+	DeactivateMonochromeMode(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_TimeStop);
+	DeactivateMonochromeMode(EPRCameraPostProcessMaterial::CameraPostProcessMaterial_BlackAndWhite);
+	// GetEffectSystem()->SetActivateTimeStop(false);
+	// GetObjectPoolSystem()->SetActivateTimeStop(false);
+}
+
+bool APRPlayerCharacter::IsActivateTimeStop() const
+{
+	// return GetTimeStopSystem()->IsActivateTimeStop();
+	AProjectReplicaGameMode* PRGameMode = Cast<AProjectReplicaGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	if(IsValid(PRGameMode) == true)
+	{
+		return PRGameMode->IsActivateTimeStop();
+	}
+	
+	return false; 
 }
 #pragma endregion
 
@@ -991,6 +1035,16 @@ void APRPlayerCharacter::ReadyToChangeTarget(bool bIsReady)
 #pragma endregion 
 
 #pragma region Dodge
+bool APRPlayerCharacter::IsActivateExtremeDodgeArea()
+{
+	if(ExtremeDodgeArea->GetCollisionEnabled() == ECollisionEnabled::QueryOnly)
+	{
+		return true;
+	}
+
+	return false;
+}
+
 void APRPlayerCharacter::ActivateExtremeDodgeArea()
 {
 	ExtremeDodgeArea->SetCollisionEnabled(ECollisionEnabled::QueryOnly);

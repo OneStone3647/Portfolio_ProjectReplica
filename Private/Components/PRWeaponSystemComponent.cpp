@@ -59,7 +59,7 @@ APRBaseWeapon* UPRWeaponSystemComponent::GetWeapon(int32 NewWeaponInventoryIndex
 	return nullptr;
 }
 
-void UPRWeaponSystemComponent::DrawWeapon(int32 DrawWeaponIndex)
+APRBaseWeapon* UPRWeaponSystemComponent::DrawWeapon(int32 DrawWeaponIndex)
 {
 	// WeaponInventory에 Index 값에 해당하는 무기가 존재하는지 확인합니다.
 	if(WeaponInventory.IsValidIndex(DrawWeaponIndex) == true)
@@ -80,10 +80,14 @@ void UPRWeaponSystemComponent::DrawWeapon(int32 DrawWeaponIndex)
 		}
 
 		NewDrawWeapon->Draw();
+
+		return NewDrawWeapon;
 	}
+
+	return nullptr;
 }
 
-void UPRWeaponSystemComponent::SheathWeapon(int32 SheathWeaponIndex)
+APRBaseWeapon* UPRWeaponSystemComponent::SheathWeapon(int32 SheathWeaponIndex)
 {
 	// WeaponInventory에 Index 값에 해당하는 무기가 존재하는지 확인합니다.
 	if(WeaponInventory.IsValidIndex(SheathWeaponIndex) == true)
@@ -104,7 +108,11 @@ void UPRWeaponSystemComponent::SheathWeapon(int32 SheathWeaponIndex)
 		}
 
 		NewSheathWeapon->Sheath();
+
+		return NewSheathWeapon;
 	}
+
+	return nullptr;
 }
 
 APRBaseWeapon* UPRWeaponSystemComponent::GetEquippedWeapon() const
@@ -115,6 +123,11 @@ APRBaseWeapon* UPRWeaponSystemComponent::GetEquippedWeapon() const
 	}
 
 	return nullptr;
+}
+
+bool UPRWeaponSystemComponent::IsValidWeaponIndex(int32 NewWeaponIndex)
+{
+	return WeaponInventory.IsValidIndex(NewWeaponIndex);
 }
 
 APRBaseWeapon* UPRWeaponSystemComponent::SpawnWeaponInWorld(TSubclassOf<APRBaseWeapon> NewPRWeaponClass)

@@ -98,6 +98,11 @@ void APRBaseWeapon::Sheath()
 	}
 }
 
+void APRBaseWeapon::SetVisibility(bool bNewVisibility)
+{
+	SetActorHiddenInGame(!bNewVisibility);
+}
+
 #pragma region Debug
 void APRBaseWeapon::UpdateTraceDebug()
 {

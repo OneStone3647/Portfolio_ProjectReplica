@@ -5,6 +5,7 @@
 #include "ProjectReplica.h"
 #include "Common/PRCommonStruct.h"
 #include "GameFramework/Character.h"
+#include "Weapons/PRBaseWeapon.h"
 #include "PRBaseCharacter.generated.h"
 
 class UPRAnimSystemComponent;
@@ -128,6 +129,23 @@ public:
 #pragma endregion
 
 #pragma region WeaponSystem
+public:
+	/**
+	 * 현재 장비한 무기를 발도하는 함수입니다.
+	 *
+	 * @return 발도하는 현재 장비한 무기
+	 */
+	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
+	APRBaseWeapon* DrawEquippedWeapon();
+
+	/**
+	 * 현재 장비한 무기를 납도하는 함수입니다.
+	 *
+	 * @return 납도하는 현재 장비한 무기
+	 */
+	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
+	APRBaseWeapon* SheathEquippedWeapon();
+	
 private:
 	/** 캐릭터의 무기를 관리하는 ActorComponent입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "WeaponSystem", meta = (AllowPrivateAccess = "true"))
@@ -141,15 +159,15 @@ public:
 	// FPRWeaponGroup GetEquippedWeaponGroup() const;
 #pragma endregion
 
-#pragma region SkillSystem
+#pragma region EffectSystem
 private:
-	/** 캐릭터의 스킬을 관리하는 ActorComponent입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SkillSystem", meta = (AllowPrivateAccess = "true"))
-	UPRSkillSystemComponent* SkillSystem;
+	/** 플레이어가 사용하는 Effect를 관리하는 ActorComponent 클래스입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	UPREffectSystemComponent* EffectSystem;
 
 public:
-	/** SkillSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRSkillSystemComponent* GetSkillSystem() const { return SkillSystem; }
+	/** EffectSystem을 반환하는 함수입니다. */
+	UPREffectSystemComponent* GetEffectSystem() const {	return EffectSystem; }
 #pragma endregion
 
 #pragma region ObjectPoolSystem
@@ -163,15 +181,24 @@ public:
 	FORCEINLINE class UPRObjectPoolSystemComponent* GetObjectPoolSystem() const { return ObjectPoolSystem; }
 #pragma endregion
 
-#pragma region EffectSystem
+#pragma region SkillSystem
+public:
+	/**
+	 * 인자 값에 해당하는 CommandSkill의 스킬을 SkillInventory에서 찾아 반환하는 함수입니다.
+	 *
+	 * @param NewCommandSkill SkillInventory에서 찾아 반환할 스킬의 CommandSkill입니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "SkillSystem", meta = (AutoCreateRefTerm = "NewCommandSkillType"))
+	virtual class UPRBaseSkill* GetSkillFromCommand(EPRCommandSkill NewCommandSkill) const;
+	
 private:
-	/** 플레이어가 사용하는 Effect를 관리하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
-	UPREffectSystemComponent* EffectSystem;
+	/** 캐릭터의 스킬을 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SkillSystem", meta = (AllowPrivateAccess = "true"))
+	UPRSkillSystemComponent* SkillSystem;
 
 public:
-	/** EffectSystem을 반환하는 함수입니다. */
-	UPREffectSystemComponent* GetEffectSystem() const {	return EffectSystem; }
+	/** SkillSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRSkillSystemComponent* GetSkillSystem() const { return SkillSystem; }
 #pragma endregion
 
 #pragma region Dodge

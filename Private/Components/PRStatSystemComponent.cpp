@@ -13,6 +13,12 @@ void UPRStatSystemComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
 
+	// SetHealthPoint(CharacterStat.MaxHealthPoint);
+}
+
+void UPRStatSystemComponent::InitializeCharacterStat(const FPRCharacterStat& NewCharacterStat)
+{
+	CharacterStat = NewCharacterStat;
 	SetHealthPoint(CharacterStat.MaxHealthPoint);
 }
 

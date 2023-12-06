@@ -9,9 +9,12 @@
 #include "Components/PRSkillSystemComponent.h"
 #include "Components/PRWeaponSystemComponent.h"
 #include "Components/PRTargetingSystemComponent.h"
+#include "Objects/PRPooledObject.h"
 
 UPRSkill_Kyle_JudgementCut::UPRSkill_Kyle_JudgementCut()
 {
+	JudgementCutArea = FPRPooledObjectInfo();
+	
 	// PRAnimMontage
 	JudgementCutPRAnimMontage = FPRAnimMontage();
 	JudgementCutPRAnimMontageID = 1113;
@@ -23,11 +26,21 @@ void UPRSkill_Kyle_JudgementCut::InitializeSkill_Implementation()
 
 	ActivateableCount = SkillInfo.MaxActivatableCount;
 
-	// 데이터 테이블에서 스킬이 사용하는 PRAnimMontage를 가져옵니다.
-	// JudgementCutPRAnimMontage를 데이터 테이블에서 받아옵니다.
-	if(IsValid(GetSkillOwner()) == true && JudgementCutPRAnimMontage == FPRAnimMontage())
+	if(IsValid(GetSkillOwner()) == true)
 	{
-		JudgementCutPRAnimMontage = FPRAnimMontage(GetSkillOwner()->GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByID(JudgementCutPRAnimMontageID));
+		// ObjectPool 생성
+		if(JudgementCutArea.PooledObjectClass != nullptr
+			&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(JudgementCutArea.PooledObjectClass) == false)
+		{
+			GetSkillOwner()->GetObjectPoolSystem()->CreateObjectPool(JudgementCutArea);
+		}
+
+		// 데이터 테이블에서 스킬이 사용하는 PRAnimMontage를 가져옵니다.
+		// JudgementCutPRAnimMontage를 데이터 테이블에서 받아옵니다.
+		if(JudgementCutPRAnimMontage == FPRAnimMontage())
+		{
+			JudgementCutPRAnimMontage = FPRAnimMontage(GetSkillOwner()->GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByID(JudgementCutPRAnimMontageID));
+		}
 	}
 }
 

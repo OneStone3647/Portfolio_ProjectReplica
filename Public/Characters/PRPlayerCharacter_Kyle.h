@@ -36,12 +36,6 @@ protected:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
-#pragma region AnimSystem
-private:
-	/** 캐릭터가 사용하는 PRAniMontage들을 초기화하는 함수입니다. */
-	virtual void InitializePRAnimMontages() override;
-#pragma endregion
-
 #pragma region MovementInput
 protected:
 	virtual void Jump() override;
@@ -65,6 +59,22 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CharacterInfo", meta = (AllowPrivateAccess = "true"))
 	EPRAttackMode AttackMode;
 #pragma endregion
+
+#pragma region AnimSystem
+private:
+	/** 캐릭터가 사용하는 PRAniMontage들을 초기화하는 함수입니다. */
+	virtual void InitializePRAnimMontages() override;
+#pragma endregion
+
+#pragma region SkillSystem
+public:
+	/**
+	 * 인자 값에 해당하는 CommandSkill의 스킬을 SkillInventory에서 찾아 반환하는 함수입니다.
+	 *
+	 * @param NewCommandSkill SkillInventory에서 찾아 반환할 스킬의 CommandSkill입니다.
+	 */
+	virtual class UPRBaseSkill* GetSkillFromCommand(EPRCommandSkill NewCommandSkill) const override;
+#pragma endregion 
 
 #pragma region Dodge
 protected:
@@ -165,5 +175,13 @@ private:
 protected:
 	/** 입력받은 인자로 DodgeAttack의 활성화/비활성화를 설정하는 함수입니다. */
 	void SetActivateDodgeAttack(bool bActivate);
-#pragma endregion 
+#pragma endregion
+
+#pragma region SkillPalette
+protected:
+	/** 인자 값에 해당하는 전투 스킬을 실행하는 함수입니다. */
+	virtual void ActivateBattleSkill(EPRCommandSkill NewPRCommandSkill) override;
+#pragma endregion
+
+	
 };

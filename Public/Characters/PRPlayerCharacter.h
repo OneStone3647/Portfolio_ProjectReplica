@@ -9,6 +9,7 @@
 
 class USpringArmComponent;
 class UCameraComponent;
+class UCineCameraComponent;
 class UPRTargetingSystemComponent;
 class UPRTimeStopSystemComponent;
 class UPREffectSystemComponent;
@@ -19,6 +20,7 @@ class APRBaseSkill;
 class UPRTestEffectSystemComponent;
 class USphereComponent;
 class APRPooledObject;
+class USceneCaptureComponent2D;
 
 enum class EPRCommandSkill : uint8;
 
@@ -77,22 +79,21 @@ protected:
 
 #pragma region Camera
 public:
+	/** 카메라의 입력이 차단되었는지 나타내는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	bool bIsLockCamera() const;
+
+	/** 카메라의 입력의 차단을 설정하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	void SetLockCamera(bool bNewLockCamera);
+	
 	/** 카메라가 움직이는지 나타내는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
 	bool IsMoveCamera() const;
 
 	/** 카메라의 위치를 초기화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
 	void ActivateResetCamera();
-	
-	// /**
-	//  * 입력받은 인자 값에 따라 월드를 흑백으로 설정합니다.
-	//  *
-	//  * @param bActivate true일 경우 월드를 흑백으로 false일 경우 원래대로 설정합니다.
-	//  */
-	// UFUNCTION(BlueprintCallable, Category = "Camera")
-	// void ActivateWorldCameraMonochrome(bool bActivate);
-	// void ActivateWorldCameraMonochrome(EPRPostProcessMaterial PostProcessMaterial, float Value);
-	// void ActivateWorldCameraMonochromeLerp(EPRPostProcessMaterial PostProcessMaterial, bool bReversePlay = false);
 
 	/** 카메라가 MonochromeMode에 사용하는 PostProcessMaterial을 초기화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
@@ -124,7 +125,15 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
 	void DeactivateMonochromeMode(EPRCameraPostProcessMaterial CameraPostProcessMaterial);
-	
+
+	/** SkillCamera를 활성화하는 함수입니다. FollowCamera를 비활성화합니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	void ActivateSkillCamera();
+
+	/** SkillCamera를 비활성화하는 함수입니다. FollowCamera를 활성화합니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRPlayerCharacter|Camera")
+	void DeactivateSkillCamera();
+		
 protected:
 	/**
 	 * 마우스 사용할 때 사용하는 카메라 좌우 회전 함수입니다.
@@ -184,10 +193,22 @@ protected:
 	/** 캐릭터 뒤에서 따라오는 카메라입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FollowCamera;
+	
+	/** 캐릭터의 스킬 연출에 사용하는 카메라입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	UCineCameraComponent* SkillCamera;
+
+	/** 화면을 캡쳐하는 컴포넌트입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	USceneCaptureComponent2D* SceneCapture;	
 
 	/** 카메라의 초기화한 위치를 나타내는 ArrowComponent입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UArrowComponent* ResetCameraPositionArrow;
+
+	/** 카메라의 입력을 차단하는 변수입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	bool bLockCamera;	
 	
 	/** 마우스를 사용할 때 카메라가 좌우 회전을 하는지 나타내는 변수입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -227,14 +248,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCurveFloat* ResetCameraFloatCurve;
 
-	// /** 화면을 흑백으로 나타내는 채도입니다. */
-	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	// FVector4 MonochromeColorSaturation;
-	//
-	// /** 화면을 흑백으로 나타내는 감마입니다. */
-	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	// FVector4 MonochromeColorGamma;
-
 	/** MonochromeModeTimeline가 사용할 Callback 함수입니다. */
 	FOnTimelineFloat MonochromeModeTimelineProgress;
 
@@ -252,14 +265,29 @@ protected:
 public:
 	/** FollowCamera를 반환하는 함수입니다. */
 	UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	
+	/** SkillCamera를 반환하는 함수입니다. */
+	UCineCameraComponent* GetSkillCamera() const { return SkillCamera; }
+
+	/** SceneCapture를 반환하는 함수입니다. */
+	USceneCaptureComponent2D* GetSceneCapture() const { return SceneCapture; }
 #pragma endregion
 
 #pragma region MovementInput
 public:
+	/** 캐릭터의 움직임 입력을 차단했는지 나타내는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "MovementInput")
+	bool IsLockMovementInput() const;
+
+	/** 캐릭터의 움직임 입력을 차단을 설정하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "MovementInput")
+	void SetLockMovementInput(bool bNewLockMovementInput);
+	
 	/**
 	 * MoveForward 또는 MoveRight를 입력했는지 판별하는 함수입니다.
 	 * @return MoveForward 또는 MoveRight를 입력했을 경우 true 입력하지 않았을 경우 false를 반환합니다.
 	 */
+	UFUNCTION(BlueprintCallable, Category = "MovementInput")
 	bool IsMoveInput() const;
 
 	/** 입력 방향으로 캐릭터를 회전시키는 함수입니다. */
@@ -342,13 +370,13 @@ protected:
 	void Walk();
 
 protected:
+	/** 캐릭터의 움직임 입력을 차단하는 변수입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "MovementInput")
+	bool bLockMovementInput; 
+	
 	/** 더블 점프 애니메이션 몽타주입니다. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MovementInput")
 	UAnimMontage* DoubleJumpAnimMontage;
-	
-	// /** 더블 점프할 수 있는지 나타내는 변수입니다. */
-	// UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "MovementInput")
-	// bool bDoubleJumpable;
 
 	/** 달리기 위한 Axis의 최고 입력 값입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "MovementInput")
@@ -403,23 +431,31 @@ public:
 public:
 	/** TimeStop을 실행하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
-	void ActivateTimeStop(float TimeStopDuration);
+	void ActivateTimeStop(float TimeStopDuration = 0.0f, EPRCameraPostProcessMaterial NewMonochromeMode = EPRCameraPostProcessMaterial::CameraPostProcessMaterial_TimeStop);
 
 	/** TimeStop을 중지하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
 	void DeactivateTimeStop();
-	
-private:
-	/** 플레이어 캐릭터를 제외한 일정범위 안에 존재하는 Actor들을 일시정지하는 TimeStop을 실행하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeStopSystem", meta = (AllowPrivateAccess = "true"))
-	UPRTimeStopSystemComponent* TimeStopSystem;
 
-public:
-	/** TimeStopSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRTimeStopSystemComponent* GetTimeStopSystem() const
-	{
-		return TimeStopSystem;
-	}
+	/** TimeStopSystem의 OnDeactivateTimeStop Delegate에 바인딩할 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
+	void OnDeactivateTimeStop();
+
+	/** TimeStop을 실행 중인지 나타내는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
+	bool IsActivateTimeStop() const;
+// 	
+// private:
+// 	/** 플레이어 캐릭터를 제외한 일정범위 안에 존재하는 Actor들을 일시정지하는 TimeStop을 실행하는 ActorComponent 클래스입니다. */
+// 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeStopSystem", meta = (AllowPrivateAccess = "true"))
+// 	UPRTimeStopSystemComponent* TimeStopSystem;
+//
+// public:
+// 	/** TimeStopSystem을 반환하는 함수입니다. */
+// 	FORCEINLINE class UPRTimeStopSystemComponent* GetTimeStopSystem() const
+// 	{
+// 		return TimeStopSystem;
+// 	}
 #pragma endregion
 
 #pragma region Interact
@@ -459,6 +495,10 @@ private:
 
 #pragma region Dodge
 public:
+	/** ExtremeDodgeArea가 활성화 되었는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "Dodge")
+	bool IsActivateExtremeDodgeArea();
+	
 	/** ExtremeDodgeArea 활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "Dodge")
 	void ActivateExtremeDodgeArea();
@@ -538,7 +578,7 @@ protected:
 #pragma region SkillPalette
 protected:
 	/** 인자 값에 해당하는 전투 스킬을 실행하는 함수입니다. */
-	void ActivateBattleSkill(EPRCommandSkill NewPRCommandSkill);
+	virtual void ActivateBattleSkill(EPRCommandSkill NewPRCommandSkill);
 	
 	/** 입력받은 인자에 따라 SkillPalette를 펼치고 접는 함수힙니다. */
 	void OpenSkillPalette(bool bNewIsOpen);

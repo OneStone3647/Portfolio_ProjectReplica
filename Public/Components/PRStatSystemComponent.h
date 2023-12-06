@@ -6,62 +6,6 @@
 #include "Components/PRBaseActorComponent.h"
 #include "PRStatSystemComponent.generated.h"
 
-/** 캐릭터의 스탯(능력치)를 구성하는 변수를 가진 구조체입니다. */
-USTRUCT(Atomic, BlueprintType)
-struct FPRCharacterStat : public FTableRowBase
-{
-	GENERATED_BODY()
-
-public:
-	FPRCharacterStat()
-		: MaxHealthPoint(500.0f)
-		, HealthPoint(500.0f)
-		, AttackPoint(10.0f)
-		, DefencePoint(10.0f)
-		, CriticalRate(10.0f)
-		, CriticalDamage(50.0f)
-	{}
-
-	FPRCharacterStat(float NewMaxHealthPoint, float NewHealthPoint, float NewAttackPoint, float NewDefencePoint, float NewCriticalRate,
-						float NewCriticalDamage)
-		: MaxHealthPoint(NewMaxHealthPoint)
-		, HealthPoint(NewHealthPoint)
-		, AttackPoint(NewAttackPoint)
-		, DefencePoint(NewDefencePoint)
-		, CriticalRate(NewCriticalRate)
-		, CriticalDamage(NewCriticalDamage)
-	{}
-	
-
-public:
-	/** 최대 체력입니다. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "PRCharacterStat")
-	float MaxHealthPoint;
-
-	/** 현재 체력입니다. */
-	UPROPERTY(Transient, VisibleAnywhere, BlueprintReadWrite, Category = "PRCharacterStat")
-	float HealthPoint;
-	
-	/**
-	 * 캐릭터의 공격력입니다.
-	 * 무기의 대미지와는 별개로 적용됩니다.
-	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "PRCharacterStat")
-	float AttackPoint;
-
-	/** 캐릭터의 방어력입니다. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "PRCharacterStat")
-	float DefencePoint;
-
-	/** 캐릭터의 치명타 확률입니다. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "PRCharacterStat")
-	float CriticalRate;
-
-	/** 캐릭터의 치명타 피해입니다. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "PRCharacterStat")
-	float CriticalDamage;
-};
-
 DECLARE_MULTICAST_DELEGATE(FOnHealthPointIsChangedDelegate)
 DECLARE_MULTICAST_DELEGATE(FOnHealthPointIsZeroDelegate)
 
@@ -80,6 +24,10 @@ protected:
 	virtual void InitializeComponent() override;
 
 public:
+	/** 인자로 받은 캐릭터 스탯으로 현재 캐릭터 스탯을 초기화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRStatSystem")
+	void InitializeCharacterStat(const FPRCharacterStat& NewCharacterStat);
+	
 	/** 캐릭터가 받은 대미지를 적용하는 함수입니다. */
 	void TakeDamage(float NewDamage);
 
@@ -94,7 +42,7 @@ public:
 	void SetHealthPoint(float NewHealthPoint);
 	
 private:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "CharacterInfo", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "CharacterInfo", meta = (AllowPrivateAccess = "true"))
 	FPRCharacterStat CharacterStat;
 	
 	/** 캐릭터의 성별입니다. */

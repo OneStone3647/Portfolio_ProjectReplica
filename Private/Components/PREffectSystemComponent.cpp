@@ -7,8 +7,8 @@
 #include "Effect/PRParticleEffect.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
-#include "Characters/PRBaseCharacter.h"
-#include "Characters/PRPlayerCharacter.h"
+#include "Characters/PRAICharacter.h"
+#include "Characters/PRAICharacter.h"
 #include "Components/PRTimeStopSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystemComponent.h"
@@ -23,8 +23,8 @@ UPREffectSystemComponent::UPREffectSystemComponent()
 	ActivateNiagaraEffectIndexes.Empty();
 	ParticleEffectPool.Empty();
 	ActivateParticleEffectIndexes.Empty();
-	bIgnoreTimeStop = false;
-	bActivateTimeStop = false;
+	// bIgnoreTimeStop = false;
+	bTimeStopActive = false;
 }
 
 void UPREffectSystemComponent::BeginPlay()
@@ -40,16 +40,22 @@ void UPREffectSystemComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// TimeStop을 무시할 때 Effect의 TimeDilation을 최신화합니다.
-	if(bIgnoreTimeStop)
+	// if(bIgnoreTimeStop)
+	// {
+	// 	if(bActivateTimeStop)
+	// 	{
+	// 		UpdateEffectTimeDilation(DeltaTime);
+	// 	}
+	// 	else
+	// 	{
+	// 		UpdateEffectTimeDilation(GetPROwner()->GetWorld()->DeltaTimeSeconds * 0.1f);
+	// 	}
+	// }
+
+	// TimeStop의 영향을 받았을 때 Effect의 TimeDilation을 최신화합니다.
+	if(bTimeStopActive)
 	{
-		if(bActivateTimeStop)
-		{
-			UpdateEffectTimeDilation(DeltaTime);
-		}
-		else
-		{
-			UpdateEffectTimeDilation(GetPROwner()->GetWorld()->DeltaTimeSeconds * 0.1f);
-		}
+		UpdateEffectTimeDilation(GetPROwner()->CustomTimeDilation);
 	}
 }
 
@@ -122,13 +128,15 @@ void UPREffectSystemComponent::CreateEffectPool()
 			FPRNiagaraEffectInfo* DataTableNiagaraEffectInfo = NiagaraEffectDataTable->FindRow<FPRNiagaraEffectInfo>(RowName, FString(""));
 			if(DataTableNiagaraEffectInfo != nullptr && DataTableNiagaraEffectInfo->NiagaraSystem != nullptr)
 			{
-				FPRNiagaraEffectPool NewNiagaraEffectPool = CreateNiagaraEffectPool(*DataTableNiagaraEffectInfo);
-				// EffectPool.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewNiagaraEffectPool);
-				NiagaraEffectPool.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewNiagaraEffectPool);
+				// FPRNiagaraEffectPool NewNiagaraEffectPool = CreateNiagaraEffectPool(*DataTableNiagaraEffectInfo);
+				// // EffectPool.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewNiagaraEffectPool);
+				// NiagaraEffectPool.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewNiagaraEffectPool);
+				//
+				// FPRActivateIndex NewActivateIndexes;
+				// // ActivatePoolIndexes.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewActivateIndexes);
+				// ActivateNiagaraEffectIndexes.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewActivateIndexes);
 
-				FPRActivateIndex NewActivateIndexes;
-				// ActivatePoolIndexes.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewActivateIndexes);
-				ActivateNiagaraEffectIndexes.Emplace(DataTableNiagaraEffectInfo->NiagaraSystem, NewActivateIndexes);
+				CreateNiagaraEffectPool(*DataTableNiagaraEffectInfo);
 			}
 		}
 	}
@@ -142,13 +150,15 @@ void UPREffectSystemComponent::CreateEffectPool()
 			FPRParticleEffectInfo* DataTableParticleEffectInfo = ParticleEffectDataTable->FindRow<FPRParticleEffectInfo>(RowName, FString(""));
 			if(DataTableParticleEffectInfo != nullptr && DataTableParticleEffectInfo->ParticleSystem != nullptr)
 			{
-				FPRParticleEffectPool NewParticleEffectPool = CreateParticleEffectPool(*DataTableParticleEffectInfo);
-				// EffectPool.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewParticleEffectPool);
-				ParticleEffectPool.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewParticleEffectPool);
+				// FPRParticleEffectPool NewParticleEffectPool = CreateParticleEffectPool(*DataTableParticleEffectInfo);
+				// // EffectPool.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewParticleEffectPool);
+				// ParticleEffectPool.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewParticleEffectPool);
+				//
+				// FPRActivateIndex NewActivateIndexes;
+				// // ActivatePoolIndexes.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewActivateIndexes);
+				// ActivateParticleEffectIndexes.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewActivateIndexes);
 
-				FPRActivateIndex NewActivateIndexes;
-				// ActivatePoolIndexes.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewActivateIndexes);
-				ActivateParticleEffectIndexes.Emplace(DataTableParticleEffectInfo->ParticleSystem, NewActivateIndexes);
+				CreateParticleEffectPool(*DataTableParticleEffectInfo);
 			}
 		}
 	}
@@ -334,148 +344,6 @@ UPRParticleEffect* UPREffectSystemComponent::SpawnParticleEffectAttached(UPartic
 	return nullptr;
 }
 
-// UPREffect* UPREffectSystemComponent::SpawnEffectAtLocation(UFXSystemAsset* SpawnEffect, FVector Location, FRotator Rotation, FVector Scale, bool bEffectAutoActivate)
-// {
-// 	// EffectPool에서 실행할 Effect를 탐색합니다.
-// 	for(auto& NewEffects : EffectPool)
-// 	{
-// 		if(NewEffects.Key == SpawnEffect)
-// 		{
-// 			for(auto& ActivateableEffect : NewEffects.Value.Effects)
-// 			{
-// 				// 활성화되지 않은 Effect일 경우 지정한 위치에 Effect를 Spawn하고 활성화하고 반환합니다.
-// 				if(IsActivateEffect(ActivateableEffect) == false)
-// 				{
-// 					ActivateableEffect->SpawnEffectAtLocation(Location, Rotation, Scale, bEffectAutoActivate);
-// 					ActivatePoolIndexes.Find(SpawnEffect)->ActivateIndexes.Emplace(ActivateableEffect->GetPoolIndex());
-// 					
-// 					return ActivateableEffect;
-// 				}
-// 			}
-//
-// 			// 풀의 모든 Effect가 활성화되었을 경우 새로운 Effect를 생성하여 풀에 넣고 활성화하고 반환합니다.
-// 			// Effect가 Niagara인지 Particle인지 판별하여 Effect를 생성합니다.
-// 			if(SpawnEffect->IsA(UNiagaraSystem::StaticClass()))
-// 			{
-// 				UNiagaraSystem* NewSpawnEffect = Cast<UNiagaraSystem>(SpawnEffect);
-// 				if(NewSpawnEffect != nullptr)
-// 				{
-// 					UPRNiagaraEffect* NewNiagaraEffect = CreateNiagaraEffect(NewSpawnEffect);
-// 					if(NewNiagaraEffect != nullptr)
-// 					{
-// 						// Lifespan과 PoolIndex를 설정합니다.
-// 						NewNiagaraEffect->SetLifespan(NewEffects.Value.Effects[0]->GetLifeSpan());
-// 						NewNiagaraEffect->SetPoolIndex(NewEffects.Value.Effects.Num());
-// 						
-// 						// 새로 생성한 Effect를 지정한 위치에 Spawn하고 활성화합니다.
-// 						NewNiagaraEffect->SpawnEffectAtLocation(Location, Rotation, Scale, bEffectAutoActivate);
-// 						// 새로 생성한 Effect를 Pool에 넣습니다.
-// 						NewEffects.Value.Effects.Emplace(NewNiagaraEffect);
-// 						ActivatePoolIndexes.Find(SpawnEffect)->ActivateIndexes.Emplace(NewNiagaraEffect->GetPoolIndex());
-//
-// 						return NewNiagaraEffect;
-// 					}
-// 				}
-// 			}
-// 			else if(SpawnEffect->IsA(UParticleSystem::StaticClass()))
-// 			{
-// 				UParticleSystem* NewSpawnEffect = Cast<UParticleSystem>(SpawnEffect);
-// 				if(NewSpawnEffect != nullptr)
-// 				{
-// 					UPRParticleEffect* NewParticleEffect = CreateParticleEffect(NewSpawnEffect);
-// 					if(NewParticleEffect != nullptr)
-// 					{
-// 						// Lifespan과 PoolIndex를 설정합니다.
-// 						NewParticleEffect->SetLifespan(NewEffects.Value.Effects[0]->GetLifeSpan());
-// 						NewParticleEffect->SetPoolIndex(NewEffects.Value.Effects.Num());
-// 						
-// 						// 새로 생성한 Effect를 지정한 위치에 Spawn하고 활성화합니다.
-// 						NewParticleEffect->SpawnEffectAtLocation(Location, Rotation, Scale, bEffectAutoActivate);
-// 						// 새로 생성한 Effect를 Pool에 넣습니다.
-// 						NewEffects.Value.Effects.Emplace(NewParticleEffect);
-// 						ActivatePoolIndexes.Find(SpawnEffect)->ActivateIndexes.Emplace(NewParticleEffect->GetPoolIndex());
-//
-// 						return NewParticleEffect;
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-//
-// 	return nullptr;
-// }
-//
-// UPREffect* UPREffectSystemComponent::SpawnEffectAttached(UFXSystemAsset* SpawnEffect, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bEffectAutoActivate)
-// {
-// 	// EffectPool에서 실행할 Effect를 탐색합니다.
-// 	for(auto& NewEffects : EffectPool)
-// 	{
-// 		if(NewEffects.Key == SpawnEffect)
-// 		{
-// 			for(auto& ActivateableEffect : NewEffects.Value.Effects)
-// 			{
-// 				// 활성화되지 않은 Effect일 경우 지정한 위치에 Effect를 Spawn하고 활성화하고 반환합니다.
-// 				if(IsActivateEffect(ActivateableEffect) == false)
-// 				{
-// 					ActivateableEffect->SpawnEffectAttached(AttachToComponent, AttachPointName, Location, Rotation, Scale, LocationType, bEffectAutoActivate);
-// 					ActivatePoolIndexes.Find(SpawnEffect)->ActivateIndexes.Emplace(ActivateableEffect->GetPoolIndex());
-// 					
-// 					return ActivateableEffect;
-// 				}
-// 			}
-//
-// 			// 풀의 모든 Effect가 활성화되었을 경우 새로운 Effect를 생성하여 풀에 넣고 활성화하고 반환합니다.
-// 			// Effect가 Niagara인지 Particle인지 판별하여 Effect를 생성합니다.
-// 			if(SpawnEffect->IsA(UNiagaraSystem::StaticClass()))
-// 			{
-// 				UNiagaraSystem* NewSpawnEffect = Cast<UNiagaraSystem>(SpawnEffect);
-// 				if(NewSpawnEffect != nullptr)
-// 				{
-// 					UPRNiagaraEffect* NewNiagaraEffect = CreateNiagaraEffect(NewSpawnEffect);
-// 					if(NewNiagaraEffect != nullptr)
-// 					{
-// 						// Lifespan과 PoolIndex를 설정합니다.
-// 						NewNiagaraEffect->SetLifespan(NewEffects.Value.Effects[0]->GetLifeSpan());
-// 						NewNiagaraEffect->SetPoolIndex(NewEffects.Value.Effects.Num());
-// 						
-// 						// 새로 생성한 Effect를 지정한 위치에 Spawn하고 활성화합니다.
-// 						NewNiagaraEffect->SpawnEffectAttached(AttachToComponent, AttachPointName, Location, Rotation, Scale, LocationType, bEffectAutoActivate);
-// 						// 새로 생성한 Effect를 Pool에 넣습니다.
-// 						NewEffects.Value.Effects.Emplace(NewNiagaraEffect);
-// 						ActivatePoolIndexes.Find(SpawnEffect)->ActivateIndexes.Emplace(NewNiagaraEffect->GetPoolIndex());
-//
-// 						return NewNiagaraEffect;
-// 					}
-// 				}
-// 			}
-// 			else if(SpawnEffect->IsA(UParticleSystem::StaticClass()))
-// 			{
-// 				UParticleSystem* NewSpawnEffect = Cast<UParticleSystem>(SpawnEffect);
-// 				if(NewSpawnEffect != nullptr)
-// 				{
-// 					UPRParticleEffect* NewParticleEffect = CreateParticleEffect(NewSpawnEffect);
-// 					if(NewParticleEffect != nullptr)
-// 					{
-// 						// Lifespan과 PoolIndex를 설정합니다.
-// 						NewParticleEffect->SetLifespan(NewEffects.Value.Effects[0]->GetLifeSpan());
-// 						NewParticleEffect->SetPoolIndex(NewEffects.Value.Effects.Num());
-// 						
-// 						// 새로 생성한 Effect를 지정한 위치에 Spawn하고 활성화합니다.
-// 						NewParticleEffect->SpawnEffectAttached(AttachToComponent, AttachPointName, Location, Rotation, Scale, LocationType, bEffectAutoActivate);
-// 						// 새로 생성한 Effect를 Pool에 넣습니다.
-// 						NewEffects.Value.Effects.Emplace(NewParticleEffect);
-// 						ActivatePoolIndexes.Find(SpawnEffect)->ActivateIndexes.Emplace(NewParticleEffect->GetPoolIndex());
-//
-// 						return NewParticleEffect;
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-//
-// 	return nullptr;
-// }
-
 bool UPREffectSystemComponent::IsActivateEffect(UPREffect* Effect) const
 {
 	if(Effect != nullptr)
@@ -525,25 +393,6 @@ bool UPREffectSystemComponent::IsActivateEffect(UPREffect* Effect) const
 		}
 	}
 
-	// if(Effect != nullptr)
-	// {
-	// 	for(const auto& ActivatePoolIndex : ActivatePoolIndexes)
-	// 	{
-	// 		if(Effect->GetEffectSourceAsset() == ActivatePoolIndex.Key)
-	// 		{
-	// 			for(const auto& PoolIndex : ActivatePoolIndex.Value.ActivateIndexes)
-	// 			{
-	// 				if(Effect->GetPoolIndex() == PoolIndex)
-	// 				{
-	// 					return true;
-	// 				}
-	// 			}
-	//
-	// 			return false;
-	// 		}
-	// 	}
-	// }
-
 	return false;
 }
 
@@ -555,35 +404,42 @@ bool UPREffectSystemComponent::IsValidEffectPool(UFXSystemAsset* FXSystemAsset) 
 		// FXSystemAsset이 NiagaraSystem인지 ParticleSystem인지 구분하여 실행합니다.
 
 		// FXSystemAsset이 NiagaraSystem인 경우
-		const UNiagaraSystem* NewNiagaraSystem = Cast<UNiagaraSystem>(FXSystemAsset);
-		if(NewNiagaraSystem != nullptr)
-		{
-			if(NiagaraEffectPool.Find(NewNiagaraSystem) != nullptr)
-			{
-				return true;
-			}
-		}
+		UNiagaraSystem* NewNiagaraSystem = Cast<UNiagaraSystem>(FXSystemAsset);
+		bool bIsValidNiagaraEffectPool = IsValidNiagaraEffectPool(NewNiagaraSystem);
 
 		// FXSystemAsset이 ParticleSystem인 경우
-		const UParticleSystem* NewParticleSystem = Cast<UParticleSystem>(FXSystemAsset);
-		if(NewParticleSystem != nullptr)
+		UParticleSystem* NewParticleSystem = Cast<UParticleSystem>(FXSystemAsset);
+		bool bIsValidParticleEffectPool = IsValidParticleEffectPool(NewParticleSystem);
+
+		return bIsValidNiagaraEffectPool || bIsValidParticleEffectPool;
+	}
+
+	return false;
+}
+
+bool UPREffectSystemComponent::IsValidNiagaraEffectPool(UNiagaraSystem* NewNiagaraSystem) const
+{
+	if(NewNiagaraSystem != nullptr)
+	{
+		if(NiagaraEffectPool.Find(NewNiagaraSystem) != nullptr)
 		{
-			if(ParticleEffectPool.Find(NewParticleSystem) != nullptr)
-			{
-				return true;
-			}
+			return true;
 		}
 	}
 	
-	// if(FXSystemAsset != nullptr)
-	// {
-	// 	// Find함수가 nullptr을 반환하지 않는다면 EffectPool에 FXSystemAsset을 Key로 가진 Pool이 존재하는 것입니다.
-	// 	if(EffectPool.Find(FXSystemAsset) != nullptr)
-	// 	{
-	// 		return true;
-	// 	}
-	// }
+	return false;
+}
 
+bool UPREffectSystemComponent::IsValidParticleEffectPool(UParticleSystem* NewParticleSystem) const
+{
+	if(NewParticleSystem != nullptr)
+	{
+		if(ParticleEffectPool.Find(NewParticleSystem) != nullptr)
+		{
+			return true;
+		}
+	}
+	
 	return false;
 }
 
@@ -651,6 +507,7 @@ UPRParticleEffect* UPREffectSystemComponent::CreateParticleEffect(UParticleSyste
 
 FPRNiagaraEffectPool UPREffectSystemComponent::CreateNiagaraEffectPool(FPRNiagaraEffectInfo NiagaraEffectInfo)
 {
+	// 새로운 NiagaraEffectPool 생성
 	FPRNiagaraEffectPool NewNiagaraEffectPool;
 	for(int32 Index = 0; Index < NiagaraEffectInfo.PoolSize; Index++)
 	{
@@ -663,11 +520,19 @@ FPRNiagaraEffectPool UPREffectSystemComponent::CreateNiagaraEffectPool(FPRNiagar
 		}
 	}
 
+	// NiagaraEffectPool에 추가
+	NiagaraEffectPool.Emplace(NiagaraEffectInfo.NiagaraSystem, NewNiagaraEffectPool);
+	
+	// ActivateNiagaraEffectIndexes 생성
+	FPRActivateIndex NewActivateIndexes;
+	ActivateNiagaraEffectIndexes.Emplace(NiagaraEffectInfo.NiagaraSystem, NewActivateIndexes);
+
 	return NewNiagaraEffectPool;
 }
 
 FPRParticleEffectPool UPREffectSystemComponent::CreateParticleEffectPool(FPRParticleEffectInfo ParticleEffectInfo)
 {
+	// 새로운 ParticleEffectPool 생성
 	FPRParticleEffectPool NewParticleEffectPool;
 	for(int32 Index = 0; Index < ParticleEffectInfo.PoolSize; Index++)
 	{
@@ -679,6 +544,13 @@ FPRParticleEffectPool UPREffectSystemComponent::CreateParticleEffectPool(FPRPart
 			NewParticleEffectPool.Effects.Emplace(NewParticleEffect);
 		}
 	}
+
+	// ParticleEffectPool 추가
+	ParticleEffectPool.Emplace(ParticleEffectInfo.ParticleSystem, NewParticleEffectPool);
+
+	// ActivateParticleEffectIndexes 생성
+	FPRActivateIndex NewActivateIndexes;
+	ActivateParticleEffectIndexes.Emplace(ParticleEffectInfo.ParticleSystem, NewActivateIndexes);
 	
 	return NewParticleEffectPool;
 }
@@ -728,22 +600,6 @@ void UPREffectSystemComponent::OnEffectDeactivate(UPREffect* DeactivateEffect)
 			}
 		}	
 	}
-	
-	// for(auto& ActivatePoolIndex : ActivatePoolIndexes)
-	// {
-	// 	if(ActivatePoolIndex.Key == DeactivateEffect->GetEffectSourceAsset())
-	// 	{
-	// 		// 비활성화하는 Effect의 TimeDilation을 초기화합니다.
-	// 		if(IsValid(GetPROwner()) == true)
-	// 		{
-	// 			DeactivateEffect->UpdateEffect(GetPROwner()->GetWorld()->GetDeltaSeconds() * 0.1f);
-	// 		}
-	// 		
-	// 		ActivatePoolIndex.Value.ActivateIndexes.Remove(DeactivateEffect->GetPoolIndex());
-	// 		
-	// 		return;
-	// 	}
-	// }
 }
 
 void UPREffectSystemComponent::UpdateEffectTimeDilation(float DeltaTime)
@@ -810,12 +666,72 @@ void UPREffectSystemComponent::SetEffectsCustomDepth(bool bNewRenderCustomDepth,
 	}
 }
 
-void UPREffectSystemComponent::SetIgnoreTimeStop(bool bNewIgnoreTimeStop)
+void UPREffectSystemComponent::DeactivateEffectPool(UFXSystemAsset* NewDeactivateEffect)
 {
-	bIgnoreTimeStop = bNewIgnoreTimeStop;
+	// NiagaraEffect일 경우
+	UNiagaraSystem* NewDeactivateNiagaraEffect = Cast<UNiagaraSystem>(NewDeactivateEffect);
+	if(NewDeactivateNiagaraEffect != nullptr)
+	{
+		DeactivateNiagaraEffectPool(NewDeactivateNiagaraEffect);
+		
+		return;
+	}
+
+	// ParticleEffect일 경우
+	UParticleSystem* NewDeactivateParticleEffect = Cast<UParticleSystem>(NewDeactivateEffect);
+	if(NewDeactivateParticleEffect != nullptr)
+	{
+		DeactivateParticleEffectPool(NewDeactivateParticleEffect);
+
+		return;
+	}
 }
 
-void UPREffectSystemComponent::SetActivateTimeStop(bool bNewActivateTimeStop)
+void UPREffectSystemComponent::DeactivateNiagaraEffectPool(UNiagaraSystem* NewDeactivateNiagaraEffect)
 {
-	bActivateTimeStop = bNewActivateTimeStop;
+	if(IsValidNiagaraEffectPool(NewDeactivateNiagaraEffect) == true)
+	{
+		FPRNiagaraEffectPool* NewDeactivateNiagaraEffectPool = NiagaraEffectPool.Find(NewDeactivateNiagaraEffect);
+		for(auto& NewNiagaraEffect : NewDeactivateNiagaraEffectPool->Effects)
+		{
+			NewNiagaraEffect->Deactivate();
+		}
+	}
 }
+
+void UPREffectSystemComponent::DeactivateParticleEffectPool(UParticleSystem* NewDeactivateParticleEffect)
+{
+	if(IsValidParticleEffectPool(NewDeactivateParticleEffect) == true)
+	{
+		FPRParticleEffectPool* NewDeactivateParticleEffectPool = ParticleEffectPool.Find(NewDeactivateParticleEffect);
+		for(auto& NewParticleEffect : NewDeactivateParticleEffectPool->Effects)
+		{
+			NewParticleEffect->Deactivate();
+		}
+	}
+}
+
+bool UPREffectSystemComponent::IsTimeStopActive() const
+{
+	return bTimeStopActive;
+}
+
+void UPREffectSystemComponent::TimeStopActive()
+{
+	bTimeStopActive = true;
+}
+
+void UPREffectSystemComponent::TimeStopDeactive()
+{
+	bTimeStopActive = false;
+}
+
+// void UPREffectSystemComponent::SetIgnoreTimeStop(bool bNewIgnoreTimeStop)
+// {
+// 	bIgnoreTimeStop = bNewIgnoreTimeStop;
+// }
+
+// void UPREffectSystemComponent::SetActivateTimeStop(bool bNewActivateTimeStop)
+// {
+// 	bActivateTimeStop = bNewActivateTimeStop;
+// }

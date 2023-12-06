@@ -4,9 +4,8 @@
 
 #include "ProjectReplica.h"
 #include "Skills/PRNoneCooldownSkill.h"
+#include "Components/PRObjectPoolSystemComponent.h"
 #include "PRSkill_Kyle_DodgeAttack.generated.h"
-
-class UPRObjectPoolSystemComponent;
 
 /**
  * 캐릭터가 회피 후 일반공격을 입력할 시 필요 게이지를 소모하여 참격을 날리는 스킬 클래스입니다.
@@ -38,6 +37,10 @@ protected:
 	virtual void EndDurationEffect() override;
 	
 private:
+	/** 회피 공격에 사용하여 대미지를 가하는 오브젝트의 정보입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectInfo", meta = (AllowPrivateAccess = "true"))
+	FPRPooledObjectInfo DodgeAttackProjectile;
+	
 	/** 회피 공격 자세의 지속시간에 사용하는 TimerHandle입니다. */
 	FTimerHandle SkillTimerHandle;
 

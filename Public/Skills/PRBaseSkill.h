@@ -3,13 +3,14 @@
 #pragma once
 
 #include "ProjectReplica.h"
-#include "Components/PRObjectPoolSystemComponent.h"
+#include "MovieSceneSequencePlayer.h"
 #include "UObject/NoExportTypes.h"
 #include "Tickable.h"
 #include "PRBaseSkill.generated.h"
 
 class APRBaseCharacter;
-class APRPooledObject;
+class UTemplateSequence;
+class ATemplateSequenceActor;
 
 /** 지속효과 스킬 관련 Delegate */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDurationSkillDelegate);
@@ -53,6 +54,8 @@ enum class EPRCommandSkill : uint8
 	CommandSkill_SecondBattleSkill		UMETA(DisplayName = "SecondBattleSkill"),
 	CommandSkill_ThirdBattleSkill		UMETA(DisplayName = "ThirdBattleSkill"),
 	CommandSkill_Ultimate				UMETA(DisplayName = "Ultimate"),
+	CommandSkill_GeneralUltimate		UMETA(DisplayName = "GeneralUltimate"),
+	CommandSkill_AwakeningUltimate		UMETA(DisplayName = "AwakeningUltimate"),
 	CommandSkill_CoreSkill				UMETA(DosplayName = "CoreSkill"),
 	CommandSkill_Guard					UMETA(DisplayName = "Guard"),
 	CommandSkill_Parry					UMETA(DisplayName = "Parry"),
@@ -74,31 +77,27 @@ public:
 		, Description()
 		, SkillType()
 		, Cooldown()
-		, bIgnoreTimeStop()
 		, Duration()
 		, Damage()
 		, MaxActivatableCount(-1)
 		, SkillIcon()
 		, CommandSkill()
 		, ActivatableType()
-		, ObjectInfos()
 	{}
 
-	FPRSkillInfo(FText NewName, FText NewDescription, EPRSkillType NewSkillType, float NewCooldown, bool bNewIgnoreTimeStop, float NewDuration,
+	FPRSkillInfo(FText NewName, FText NewDescription, EPRSkillType NewSkillType, float NewCooldown, float NewDuration,
 					float NewDamage, int32 NewMaxActivatableCount, UTexture2D* NewSkillIcon, EPRCommandSkill NewCommandSkill,
-					EPRSkillActivatableType NewActivatableType, TArray<FPRPooledObjectInfo> NewObjectInfos)
+					EPRSkillActivatableType NewActivatableType)
 		: Name(NewName)
 		, Description(NewDescription)
 		, SkillType(NewSkillType)
 		, Cooldown(NewCooldown)
-		, bIgnoreTimeStop(bNewIgnoreTimeStop)
 		, Duration(NewDuration)
 		, Damage(NewDamage)
 		, MaxActivatableCount(NewMaxActivatableCount)
 		, SkillIcon(NewSkillIcon)
 		, CommandSkill(NewCommandSkill)
 		, ActivatableType(NewActivatableType)
-		, ObjectInfos(NewObjectInfos)
 	{}
 
 public:
@@ -117,13 +116,6 @@ public:
 	/** 스킬의 재사용 대기시간입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
 	float Cooldown;
-
-	/**
-	 * TimeStop을 무시하고 재사용 대기시간을 실행할지 나타내는 변수입니다.
-	 * true일 경우 TimeStop일 때도 재사용 대기시간을 실행합니다. false일 경우 TimeStop일 때 재사용 대기시간을 일시정지합니다.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
-	bool bIgnoreTimeStop;
 
 	/** 스킬의 지속시간입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
@@ -149,10 +141,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
 	EPRSkillActivatableType ActivatableType;
 
-	/** 스킬에서 사용하는 오브젝트의 정보를 가진 구조체들입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkillInfo")
-	TArray<FPRPooledObjectInfo> ObjectInfos;	
-
+	// /** 스킬에서 사용하는 오브젝트의 정보를 가진 구조체들입니다. */
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SkillInfo")
+	// TArray<FPRPooledObjectInfo> ObjectInfos;
+	//
+	// /** 스킬에서 사용하는 Niagara Effect의 정보를 가진 구조체들입니다. */
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SkillInfo")
+	// TArray<FPRNiagaraEffectInfo> NiagaraEffectInfos;
+	//
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SkillInfo")
+	// TArray<FPRParticleEffectInfo> ParticleEffectInfos;
+	
 public:
 	bool IsEqualActivatableType(EPRSkillActivatableType NewActivatableType) const
 	{
@@ -166,14 +165,15 @@ public:
 		this->Description = NewSkillInfo.Description;
 		this->SkillType = NewSkillInfo.SkillType;
 		this->Cooldown = NewSkillInfo.Cooldown;
-		this->bIgnoreTimeStop = NewSkillInfo.bIgnoreTimeStop;
 		this->Duration = NewSkillInfo.Duration;
 		this->Damage = NewSkillInfo.Damage;
 		this->MaxActivatableCount = NewSkillInfo.MaxActivatableCount;
 		this->SkillIcon = NewSkillInfo.SkillIcon;
 		this->CommandSkill = NewSkillInfo.CommandSkill;
 		this->ActivatableType = NewSkillInfo.ActivatableType;
-		this->ObjectInfos = NewSkillInfo.ObjectInfos;
+		// this->ObjectInfos = NewSkillInfo.ObjectInfos;
+		// this->NiagaraEffectInfos = NewSkillInfo.NiagaraEffectInfos;
+		// this->ParticleEffectInfos = NewSkillInfo.ParticleEffectInfos;
 
 		return *this;
 	}
@@ -241,6 +241,38 @@ public:
 	/** 스킬을 실행할 수 있는 유형인지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "BaseSkill")
 	bool IsCanActivatableType() const;
+
+	/**
+	 * AN_PROnSkill 클래스의 Notify 함수에서 실행되는 함수입니다.
+	 * 애니메이션이 재생될 때 특정 구간에서 실행하고 싶을 때 사용합니다.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "BaseSkill")
+	bool OnSkillNotify();
+	virtual bool OnSkillNotify_Implementation();
+
+	/**
+	 * ANS_PROnSkill 클래스의 NotifyBegin 함수에서 실행되는 함수입니다.
+	 * 애니메이션이 재생될 때 특정 구간이 시작될 때 실행하고 싶을 때 사용합니다.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "BaseSkill")
+	bool OnSkillNotifyBegin();
+	virtual bool OnSkillNotifyBegin_Implementation();
+	
+	/**
+	 * ANS_PROnSkill 클래스의 NotifyTick 함수에서 실행되는 함수입니다.
+	 * 애니메이션이 재생될 때 특정 구간을 지나는 동안 실행하고 싶을 때 사용합니다.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "BaseSkill")
+	bool OnSkillNotifyTick(float DeltaTime);
+	virtual bool OnSkillNotifyTick_Implementation(float DeltaTime);
+
+	/**
+	 * ANS_PROnSkill 클래스의 NotifyEnd 함수에서 실행되는 함수입니다.
+	 * 애니메이션이 재생될 때 특정 구간이 끝날 때 실행하고 싶을 때 사용합니다.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "BaseSkill")
+	bool OnSkillNotifyEnd();
+	virtual bool OnSkillNotifyEnd_Implementation();
 
 protected:
 	/** 스킬의 실행 상태를 나타내는 변수입니다. */
@@ -334,22 +366,22 @@ protected:
 	virtual void EndDurationEffect();
 
 	/** 지속효과를 최신화하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "DurationEffect")
-	virtual void UpdateDurationEffect(float DeltaTime);
+	// UFUNCTION(BlueprintCallable, Category = "DurationEffect")
+	// virtual void UpdateDurationEffect(float DeltaTime);
 
 protected:
 	/** 지속효과에 사용하는 TimerHandle입니다. */
 	FTimerHandle DurationTimerHandle;
 
-	/** 지속효과의 실행을 나타내는 변수입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	/** 지속효과의 실행을 나타내는 변수입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")
 	bool bActivateDurationEffect;
 
-	/** 지속효과의 남은 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	/** 지속효과의 남은 시간입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")
 	float DurationEffectRemaining;
 
-	/** 지속효과의 경과 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	/** 지속효과의 경과 시간입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")
 	float DurationEffectElapsed;
 	
@@ -361,5 +393,31 @@ public:
 	/** 지속스킬이 종료되었을 때 실행하는 델리게이트입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "DurationEffect")
 	FOnEndDurationSkillDelegate EndDurationSkillDelegate;
-#pragma endregion 
+#pragma endregion
+
+#pragma region SkillCutScene
+public:
+	/** 스킬 컷신을 재생하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "SkillCutScene")
+	void PlaySkillCutScene();
+	void PlaySkillCutScene_Implementation();
+
+	/** 스킬 컷신의 재생이 끝난 후 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "SkillCutScene")
+	void OnFinishedSkillCutScene();
+	void OnFinishedSkillCutScene_Implementation();
+
+protected:
+	/** 스킬의 컷신입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SkillCutScene")
+	UTemplateSequence* SkillCutScene;
+
+	/** 스킬의 컷신의 재생옵션입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SkillCutScene")
+	FMovieSceneSequencePlaybackSettings SkillCutScenePlaybackSettings;
+
+	/** 스킬 컷신의 시퀸스 액터입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "SkillCutScene")
+	ATemplateSequenceActor* SkillCutSceneSequenceActor;
+#pragma endregion
 };

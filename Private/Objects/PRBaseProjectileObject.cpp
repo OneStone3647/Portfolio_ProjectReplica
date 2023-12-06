@@ -73,6 +73,7 @@ void APRBaseProjectileObject::Deactivate_Implementation()
 {
 	Super::Deactivate_Implementation();
 
+	HitBox->SetCollisionProfileName("NoCollision");
 	ProjectileMovement->Velocity = FVector::ZeroVector;
 }
 

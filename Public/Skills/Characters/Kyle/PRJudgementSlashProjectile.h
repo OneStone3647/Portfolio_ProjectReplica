@@ -37,9 +37,12 @@ protected:
 	USoundBase* ImpactSound;
 
 public:
-	/** 오브젝트를 최신화하는 함수입니다. */
-	virtual void UpdatePooledObject_Implementation(float DeltaTime) override;
+	// /** 오브젝트를 최신화하는 함수입니다. */
+	// virtual void UpdatePooledObject_Implementation(float DeltaTime) override;
 
+	/** 오브젝트를 활성화하는 함수입니다. */
+	virtual void Activate_Implementation() override;
+	
 	/** 오브젝트를 비활성화하는 함수입니다. */
 	virtual void Deactivate_Implementation() override;
 

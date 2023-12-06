@@ -27,10 +27,10 @@ APRJudgementCutArea::APRJudgementCutArea()
 	HitSounds.Empty();
 	bActivateDebug = false;
 	Damage = 5.0f;
-	DamageInterval = 0.01f;
-	TimeStopTimeDilation = 0.1f;
+	DamageInterval = 0.1f;
+	// TimeStopTimeDilation = 0.1f;
 	bActivateDamageArea = false;
-	CooldownElapsed = 0.0f;
+	// CooldownElapsed = 0.0f;
 	MaxDamageCount = 4;
 	DamageCount = 0;
 	NearestTarget = nullptr;
@@ -54,30 +54,30 @@ void APRJudgementCutArea::BeginPlay()
 	}
 }
 
-void APRJudgementCutArea::UpdatePooledObject_Implementation(float DeltaTime)
-{
-	if(GetObjectOwner() != nullptr)
-	{
-		CustomTimeDilation = GetObjectOwner()->CustomTimeDilation;
-	}
-
-	// Effect 최신화
-	if(JudgementCutEffect != nullptr && JudgementCutEffect->IsActive() == true)
-	{
-		JudgementCutEffect->AdvanceSimulation(1, DeltaTime);
-	}
-
-	if(CustomTimeDilation != 1.0f)
-	{
-		// TimeStop이 실행 중일 때
-		UpdateDamageArea(DeltaTime * TimeStopTimeDilation);
-	}
-	else
-	{
-		// 일반상태일 때
-		UpdateDamageArea(DeltaTime);
-	}
-}
+// void APRJudgementCutArea::UpdatePooledObject_Implementation(float DeltaTime)
+// {
+// 	if(GetObjectOwner() != nullptr)
+// 	{
+// 		CustomTimeDilation = GetObjectOwner()->CustomTimeDilation;
+// 	}
+//
+// 	// Effect 최신화
+// 	if(JudgementCutEffect != nullptr && JudgementCutEffect->IsActive() == true)
+// 	{
+// 		JudgementCutEffect->AdvanceSimulation(1, DeltaTime);
+// 	}
+//
+// 	if(CustomTimeDilation != 1.0f)
+// 	{
+// 		// TimeStop이 실행 중일 때
+// 		UpdateDamageArea(DeltaTime * TimeStopTimeDilation);
+// 	}
+// 	else
+// 	{
+// 		// 일반상태일 때
+// 		UpdateDamageArea(DeltaTime);
+// 	}
+// }
 
 void APRJudgementCutArea::InitializeSpawnLocation_Implementation()
 {
@@ -165,10 +165,12 @@ void APRJudgementCutArea::Activate_Implementation()
 {
 	Super::Activate_Implementation();
 
-	CooldownElapsed = 0.0f;
+	// CooldownElapsed = 0.0f;
 	DamageCount = 0;
 	JudgementCutEffect->Activate(true);
 	bActivateDamageArea = true;
+
+	GetWorld()->GetTimerManager().SetTimer(DamageAreaTimerHandle, this, &APRJudgementCutArea::ActivateDamageArea, DamageInterval, true);
 }
 
 void APRJudgementCutArea::ActivateDamageArea()
@@ -215,30 +217,38 @@ void APRJudgementCutArea::ActivateDamageArea()
 			}
 		}
 	}
-}
 
-void APRJudgementCutArea::UpdateDamageArea(float DeltaTime)
-{
-	if(bActivateDamageArea)
+	// 최대 횟수만큼 대미지를 줬으면 DamageArea를 비활성화합니다.
+	if(DamageCount == MaxDamageCount)
 	{
-		CooldownElapsed += DeltaTime;
-
-		// 재사용 대기시간이 대미지를 주는 시간의 간격보다 클 경우 DamageArea에 존재하는 Target들에게 대미지를 줍니다.
-		if(CooldownElapsed >= DamageInterval)
-		{
-			CooldownElapsed = 0;
-			ActivateDamageArea();
-		}
-
-		// 최대 횟수만큼 대미지를 줬으면 DamageArea를 비활성화합니다.
-		if(DamageCount == MaxDamageCount)
-		{
-			bActivateDamageArea = false;
-			DamageCount = 0;
-			CooldownElapsed = 0;
-		}
+		bActivateDamageArea = false;
+		DamageCount = 0;
+		GetWorld()->GetTimerManager().ClearTimer(DamageAreaTimerHandle);
 	}
 }
+
+// void APRJudgementCutArea::UpdateDamageArea(float DeltaTime)
+// {
+// 	if(bActivateDamageArea)
+// 	{
+// 		CooldownElapsed += DeltaTime;
+//
+// 		// 재사용 대기시간이 대미지를 주는 시간의 간격보다 클 경우 DamageArea에 존재하는 Target들에게 대미지를 줍니다.
+// 		if(CooldownElapsed >= DamageInterval)
+// 		{
+// 			CooldownElapsed = 0;
+// 			ActivateDamageArea();
+// 		}
+//
+// 		// 최대 횟수만큼 대미지를 줬으면 DamageArea를 비활성화합니다.
+// 		if(DamageCount == MaxDamageCount)
+// 		{
+// 			bActivateDamageArea = false;
+// 			DamageCount = 0;
+// 			CooldownElapsed = 0;
+// 		}
+// 	}
+// }
 
 FVector APRJudgementCutArea::FindFloorLocation(AActor* Target) const
 {

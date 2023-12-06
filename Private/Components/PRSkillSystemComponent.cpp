@@ -79,6 +79,22 @@ UPRBaseSkill* UPRSkillSystemComponent::GetSkillFromName(const FText& NewSkillNam
 	return nullptr;
 }
 
+UPRBaseSkill* UPRSkillSystemComponent::GetSkill(TSubclassOf<UPRBaseSkill> NewSkill)
+{
+	if(SkillInventory.Num() > 0)
+	{
+		for(UPRBaseSkill* Skill : SkillInventory)
+		{
+			if(Skill->GetClass() == NewSkill)
+			{
+				return Skill;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
 UPRBaseSkill* UPRSkillSystemComponent::CreateSkill(TSubclassOf<UPRBaseSkill> NewPRSkillClass)
 {
 	if(NewPRSkillClass != nullptr)

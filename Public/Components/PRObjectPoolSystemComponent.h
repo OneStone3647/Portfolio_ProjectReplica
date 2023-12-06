@@ -120,15 +120,19 @@ public:
 
 	/** 풀에서 인자로 받은 오브젝트에 해당하는 오브젝트를 활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
-	APRPooledObject* ActivatePooledObject(TSubclassOf<APRPooledObject> NewObjectPool);
+	APRPooledObject* ActivatePooledObject(TSubclassOf<APRPooledObject> PooledObject);
+
+	/** 인자로 받은 오브젝트의 풀에 존재하는 오브젝트들을 비활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
+	void DeactivateObjectPool(TSubclassOf<APRPooledObject> NewPooledObject);
 
 	/** 인자로 받은 풀 오브젝트를 비활성화하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category  = "ObjectPoolSystem")
-	void OnPooledObjectDeactivate(class APRPooledObject* PooledObject);
+	void OnPooledObjectDeactivate(APRPooledObject* PooledObject);
 
 	/** 오브젝트 풀에서 활성화된 오브젝트인지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category  = "ObjectPoolSystem")
-	bool IsActivatePooledObject(class APRPooledObject* PooledObject);
+	bool IsActivatePooledObject(APRPooledObject* PooledObject);
 
 	/** 인자로 받은 오브젝트로 생성된 오브젝트 풀이 있는지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category  = "ObjectPoolSystem")
@@ -137,6 +141,18 @@ public:
 	/** 입력받은 인자를 PooledObjectInfos Array에 추가하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "ObjectPoolSystem")
 	void AddPooledObjectInfo(FPRPooledObjectInfo NewPooledObjectInfo);
+
+	/** TimeStop에 영향을 받았는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	bool IsTimeStopActive() const;
+
+	/** TimeStop에 영향을 받을 때 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void TimeStopActive();
+
+	/** TimeStop에 영향을 받지 않을 때 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void TimeStopDeactive();
 
 protected:
 	/** 오브젝트 풀을 초기화하는 함수입니다. */
@@ -160,19 +176,19 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem")
 	TMap<TSubclassOf<APRPooledObject>, FPRPoolIndex> ActivatePoolIndexes;
 
-	/** TimeStop을 무시하고 Object를 실행하는지 나타내는 변수입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
-	bool bIgnoreTimeStop;
+	// /** TimeStop을 무시하고 Object를 실행하는지 나타내는 변수입니다. */
+	// UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	// bool bIgnoreTimeStop;
 
-	/** TimeStop의 실행을 나타내는 변수입니다. */
+	/** TimeStop에 영향을 받는지 나타내는 변수입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
-	bool bActivateTimeStop;
+	bool bTimeStopActive;
 
 public:
-	/** 입력받은 인자로 bIgnoreTimeStop을 설정하는 함수입니다. */
-	void SetIgnoreTimeStop(bool bNewIgnoreTimeStop);
+	// /** 입력받은 인자로 bIgnoreTimeStop을 설정하는 함수입니다. */
+	// void SetIgnoreTimeStop(bool bNewIgnoreTimeStop);
 	
-	/** 입력받은 인자로 bActivateTimeStop을 설정하는 함수입니다. */
-	UFUNCTION()
-	void SetActivateTimeStop(bool bNewActivateTimeStop);
+	// /** 입력받은 인자로 bActivateTimeStop을 설정하는 함수입니다. */
+	// UFUNCTION()
+	// void SetActivateTimeStop(bool bNewActivateTimeStop);
 };

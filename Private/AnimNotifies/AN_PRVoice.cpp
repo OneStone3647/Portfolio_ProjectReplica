@@ -45,11 +45,14 @@ void UAN_PRVoice::PlayVoice(USkeletalMeshComponent* MeshComp)
 		if(IsValid(PROwner) == true)
 		{
 			UAudioComponent* VoiceAudioComp = UGameplayStatics::SpawnSoundAttached(Voice, MeshComp);
-			VoiceAudioComp->Play();
-			VoiceAudioComp->SetIntParameter(TEXT("Gender"), static_cast<int32>(PROwner->GetStatSystem()->GetGender()));
-			VoiceAudioComp->SetFloatParameter(TEXT("VolumeMultiplier"), VolumeMultiplier);
-			VoiceAudioComp->SetFloatParameter(TEXT("PitchMultiplier"), PitchMultiplier);
-			VoiceAudioComp->SetBoolParameter(TEXT("PlayVoice"), bPlayVoice);
+			if(VoiceAudioComp != nullptr)
+			{
+				VoiceAudioComp->Play();
+				VoiceAudioComp->SetIntParameter(TEXT("Gender"), static_cast<int32>(PROwner->GetStatSystem()->GetGender()));
+				VoiceAudioComp->SetFloatParameter(TEXT("VolumeMultiplier"), VolumeMultiplier);
+				VoiceAudioComp->SetFloatParameter(TEXT("PitchMultiplier"), PitchMultiplier);
+				VoiceAudioComp->SetBoolParameter(TEXT("PlayVoice"), bPlayVoice);
+			}
 		}
 	}
 }

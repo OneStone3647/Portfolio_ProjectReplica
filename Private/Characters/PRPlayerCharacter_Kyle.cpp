@@ -2,9 +2,9 @@
 
 
 #include "Characters/PRPlayerCharacter_Kyle.h"
-
 #include "NiagaraComponent.h"
 #include "PRPlayerController.h"
+#include "Camera/CameraComponent.h"
 #include "Components/PRAnimSystemComponent.h"
 #include "Components/PREffectSystemComponent.h"
 #include "Components/PRMovementSystemComponent.h"
@@ -18,6 +18,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Skills/Characters/Kyle/PRSkill_Kyle_DodgeAttack.h"
+#include "Components/SceneCaptureComponent2D.h"
 
 APRPlayerCharacter_Kyle::APRPlayerCharacter_Kyle()
 {
@@ -61,9 +62,6 @@ void APRPlayerCharacter_Kyle::BeginPlay()
 	
 	// AnimSystem
 	InitializePRAnimMontages();
-
-	// SkillSystem
-	// GetSkillSystem()->InitializeSkillInventory();
 }
 
 void APRPlayerCharacter_Kyle::Tick(float DeltaSeconds)
@@ -78,15 +76,6 @@ void APRPlayerCharacter_Kyle::SetupPlayerInputComponent(UInputComponent* PlayerI
 	// CommandInput
 	PlayerInputComponent->BindAction("NormalAttack", IE_Pressed, this, &APRPlayerCharacter_Kyle::NormalAttack);
 }
-
-#pragma region AnimSystem
-void APRPlayerCharacter_Kyle::InitializePRAnimMontages()
-{
-	// NormalAttack AnimMontages
-	GeneralNormalPRComboAnimMontage = FPRComboAnimMontage(GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByIDRangeToArray(GeneralNormalAttackPRAnimMontageFromID, GeneralNormalAttackPRAnimMontageToID));	
-	AwakeningNormalPRComboAnimMontage = FPRComboAnimMontage(GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByIDRangeToArray(AwakeningNormalAttackPRAnimMontageFromID, AwakeningNormalAttackPRAnimMontageToID));	
-}
-#pragma endregion 
 
 #pragma region MovementInput
 void APRPlayerCharacter_Kyle::Jump()
@@ -110,6 +99,35 @@ void APRPlayerCharacter_Kyle::AddPlayerMovementInput(EPRDirection Direction)
 	Super::AddPlayerMovementInput(Direction);
 }
 #pragma endregion
+
+#pragma region AnimSystem
+void APRPlayerCharacter_Kyle::InitializePRAnimMontages()
+{
+	// NormalAttack AnimMontages
+	GeneralNormalPRComboAnimMontage = FPRComboAnimMontage(GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByIDRangeToArray(GeneralNormalAttackPRAnimMontageFromID, GeneralNormalAttackPRAnimMontageToID));	
+	AwakeningNormalPRComboAnimMontage = FPRComboAnimMontage(GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByIDRangeToArray(AwakeningNormalAttackPRAnimMontageFromID, AwakeningNormalAttackPRAnimMontageToID));	
+}
+#pragma endregion 
+
+#pragma region SkillSystem
+UPRBaseSkill* APRPlayerCharacter_Kyle::GetSkillFromCommand(EPRCommandSkill NewCommandSkill) const
+{
+	if(NewCommandSkill == EPRCommandSkill::CommandSkill_Ultimate)
+	{
+		switch(AttackMode)
+		{
+		case EPRAttackMode::AttackMode_General:
+			return Super::GetSkillFromCommand(EPRCommandSkill::CommandSkill_GeneralUltimate);
+		case EPRAttackMode::AttackMode_Awakening:
+			return Super::GetSkillFromCommand(EPRCommandSkill::CommandSkill_AwakeningUltimate);
+		default:
+			return Super::GetSkillFromCommand(NewCommandSkill);
+		}
+	}
+	
+	return Super::GetSkillFromCommand(NewCommandSkill);
+}
+#pragma endregion 
 
 #pragma region Dodge
 void APRPlayerCharacter_Kyle::Dodge()
@@ -250,6 +268,29 @@ void APRPlayerCharacter_Kyle::SetActivateDodgeAttack(bool bActivate)
 	{
 		DodgeAttackSkill->SetActivateSkill(bActivate);
 	}
+}
+#pragma endregion
+
+#pragma region SkillPalette
+void APRPlayerCharacter_Kyle::ActivateBattleSkill(EPRCommandSkill NewPRCommandSkill)
+{
+	if(NewPRCommandSkill == EPRCommandSkill::CommandSkill_Ultimate)
+	{
+		switch(AttackMode)
+		{
+		case EPRAttackMode::AttackMode_General:
+			Super::ActivateBattleSkill(EPRCommandSkill::CommandSkill_GeneralUltimate);
+			return;
+		case EPRAttackMode::AttackMode_Awakening:
+			Super::ActivateBattleSkill(EPRCommandSkill::CommandSkill_AwakeningUltimate);
+			return;
+		default:
+			Super::ActivateBattleSkill(NewPRCommandSkill);
+			return;
+		}
+	}
+	
+	Super::ActivateBattleSkill(NewPRCommandSkill);
 }
 #pragma endregion
 

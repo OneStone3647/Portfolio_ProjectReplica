@@ -42,6 +42,7 @@ void UPRParticleEffect::Activate()
 
 	if(ParticleEffect != nullptr)
 	{
+		ParticleEffect->SetHiddenInGame(false);
 		ParticleEffect->Activate();
 	}
 }
@@ -52,6 +53,7 @@ void UPRParticleEffect::Deactivate()
 
 	if(ParticleEffect != nullptr)
 	{
+		ParticleEffect->SetHiddenInGame(true);
 		ParticleEffect->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		ParticleEffect->Deactivate();
 	}

@@ -4,7 +4,10 @@
 #include "Skills/PRBaseSkill.h"
 #include "Characters/PRBaseCharacter.h"
 #include "Components/PRMovementSystemComponent.h"
-#include "Objects/PRPooledObject.h"
+#include "Characters/PRPlayerCharacter.h"
+#include "Kismet/GameplayStatics.h"
+#include "TemplateSequence.h"
+#include "TemplateSequenceActor.h"
 
 UPRBaseSkill::UPRBaseSkill()
 {
@@ -24,14 +27,19 @@ UPRBaseSkill::UPRBaseSkill()
 	bActivateDurationEffect = false;
 	DurationEffectRemaining = 0.0f;
 	DurationEffectElapsed = 0.0f;
+
+	// SkillCutScene
+	SkillCutScene = nullptr;
+	SkillCutScenePlaybackSettings = FMovieSceneSequencePlaybackSettings();
+	SkillCutSceneSequenceActor = nullptr;
 }
 
 void UPRBaseSkill::Tick(float DeltaTime)
 {
-	if(SkillInfo.bIgnoreTimeStop)
-	{
-		UpdateDurationEffect(DeltaTime);
-	}
+	// if(SkillInfo.bIgnoreTimeStop)
+	// {
+	// 	UpdateDurationEffect(DeltaTime);
+	// }
 }
 
 bool UPRBaseSkill::IsTickable() const
@@ -61,18 +69,41 @@ UWorld* UPRBaseSkill::GetWorld() const
 
 void UPRBaseSkill::InitializeSkill_Implementation()
 {
-	if(IsValid(GetSkillOwner()) == true)
-	{
-		for(FPRPooledObjectInfo ObjectInfo : SkillInfo.ObjectInfos)
-		{
-			// 스킬에서 사용하는 Object의 정보가 있을 경우 Object의 정보를 ObjectPoolSystem에 전달합니다.
-			if(ObjectInfo.PooledObjectClass != nullptr
-				&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(ObjectInfo.PooledObjectClass) == false)
-			{
-				GetSkillOwner()->GetObjectPoolSystem()->AddPooledObjectInfo(ObjectInfo);
-			}
-		}
-	}
+	// if(IsValid(GetSkillOwner()) == true)
+	// {
+	// 	// ObjectPool 생성
+	// 	for(FPRPooledObjectInfo ObjectInfo : SkillInfo.ObjectInfos)
+	// 	{
+	// 		// 스킬에서 사용하는 Object의 정보가 있을 경우 Object의 정보를 ObjectPoolSystem에 전달합니다.
+	// 		if(ObjectInfo.PooledObjectClass != nullptr
+	// 			&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(ObjectInfo.PooledObjectClass) == false)
+	// 		{
+	// 			GetSkillOwner()->GetObjectPoolSystem()->AddPooledObjectInfo(ObjectInfo);
+	// 		}
+	// 	}
+	//
+	// 	// NiagaraEffect 생성
+	// 	for(FPRNiagaraEffectInfo NiagaraEffectInfo : SkillInfo.NiagaraEffectInfos)
+	// 	{
+	// 		// 스킬에서 사용하는 NiagaraEffect의 정보가 있을 경우 NiagaraEffect의 정보를 EffectSystem에 전달하여 Pool을 생성합니다.
+	// 		if(NiagaraEffectInfo.NiagaraSystem != nullptr
+	// 			&& GetSkillOwner()->GetEffectSystem()->IsValidNiagaraEffectPool(NiagaraEffectInfo.NiagaraSystem) == false)
+	// 		{
+	// 			GetSkillOwner()->GetEffectSystem()->CreateNiagaraEffectPool(NiagaraEffectInfo);
+	// 		}
+	// 	}
+	//
+	// 	// ParticleEffect 생성
+	// 	for(FPRParticleEffectInfo ParticleEffectInfo : SkillInfo.ParticleEffectInfos)
+	// 	{
+	// 		// 스킬에서 사용하는 ParticleEffect의 정보가 있을 경우 ParticleEffect의 정보를 EffectSystem에 전달하여 Pool을 생성합니다.
+	// 		if(ParticleEffectInfo.ParticleSystem != nullptr
+	// 			&& GetSkillOwner()->GetEffectSystem()->IsValidParticleEffectPool(ParticleEffectInfo.ParticleSystem) == false)
+	// 		{
+	// 			GetSkillOwner()->GetEffectSystem()->CreateParticleEffectPool(ParticleEffectInfo);
+	// 		}
+	// 	}
+	// }
 }
 
 bool UPRBaseSkill::ActivateSkill_Implementation()
@@ -126,6 +157,26 @@ bool UPRBaseSkill::IsCanActivatableType() const
 		}
 	}
 
+	return false;
+}
+
+bool UPRBaseSkill::OnSkillNotify_Implementation()
+{
+	return false;
+}
+
+bool UPRBaseSkill::OnSkillNotifyBegin_Implementation()
+{
+	 return false;
+}
+
+bool UPRBaseSkill::OnSkillNotifyTick_Implementation(float DeltaTime)
+{
+	return false;
+}
+
+bool UPRBaseSkill::OnSkillNotifyEnd_Implementation()
+{
 	return false;
 }
 
@@ -199,25 +250,25 @@ void UPRBaseSkill::ActivateDuration()
 	DurationEffect();
 
 	// TimeStop에 영향을 받을 경우
-	if(SkillInfo.bIgnoreTimeStop == false)
-	{
-		// 지속시간이 지난 후 효과를 종료합니다.
-		GetWorld()->GetTimerManager().SetTimer(DurationTimerHandle, FTimerDelegate::CreateLambda([&]()
-		{
-			EndDurationEffect();
-		
-			GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
-		}), SkillInfo.Duration, false);
-	}
+	// if(SkillInfo.bIgnoreTimeStop == false)
+	// {
+	// 	// 지속시간이 지난 후 효과를 종료합니다.
+	// 	GetWorld()->GetTimerManager().SetTimer(DurationTimerHandle, FTimerDelegate::CreateLambda([&]()
+	// 	{
+	// 		EndDurationEffect();
+	// 	
+	// 		GetWorld()->GetTimerManager().ClearTimer(DurationTimerHandle);
+	// 	}), SkillInfo.Duration, false);
+	// }
 }
 
 float UPRBaseSkill::GetRemainingDurationEffect() const
 {
 	// TimeStop에 영향을 받지 않을 경우
-	if(SkillInfo.bIgnoreTimeStop)
-	{
-		return DurationEffectRemaining;
-	}
+	// if(SkillInfo.bIgnoreTimeStop)
+	// {
+	// 	return DurationEffectRemaining;
+	// }
 	
 	return GetWorld()->GetTimerManager().GetTimerRemaining(DurationTimerHandle);
 }
@@ -225,11 +276,12 @@ float UPRBaseSkill::GetRemainingDurationEffect() const
 void UPRBaseSkill::DurationEffect()
 {
 	// TimeStop에 영향을 받지 않을 경우
-	if(SkillInfo.bIgnoreTimeStop)
-	{
-		bActivateDurationEffect = true;
-	}
-	
+	// if(SkillInfo.bIgnoreTimeStop)
+	// {
+	// 	bActivateDurationEffect = true;
+	// }
+
+	bActivateDurationEffect = true;
 	if(DurationSkillDelegate.IsBound() == true)
 	{
 		DurationSkillDelegate.Broadcast();
@@ -239,30 +291,73 @@ void UPRBaseSkill::DurationEffect()
 void UPRBaseSkill::EndDurationEffect()
 {
 	// TimeStop에 영향을 받지 않을 경우
-	if(SkillInfo.bIgnoreTimeStop)
-	{
-		bActivateDurationEffect = false;
-		DurationEffectElapsed = 0.0f;
-		DurationEffectRemaining = 0.0f;
-	}
-		
+	// if(SkillInfo.bIgnoreTimeStop)
+	// {
+	// 	bActivateDurationEffect = false;
+	// 	DurationEffectElapsed = 0.0f;
+	// 	DurationEffectRemaining = 0.0f;
+	// }
+
+	bActivateDurationEffect = false;
 	if(EndDurationSkillDelegate.IsBound() == true)
 	{
 		EndDurationSkillDelegate.Broadcast();
 	}
 }
 
-void UPRBaseSkill::UpdateDurationEffect(float DeltaTime)
-{
-	if(bActivateDurationEffect)
-	{
-		DurationEffectElapsed += DeltaTime;
-		DurationEffectRemaining = SkillInfo.Duration - DurationEffectElapsed;
+// void UPRBaseSkill::UpdateDurationEffect(float DeltaTime)
+// {
+// 	if(bActivateDurationEffect)
+// 	{
+// 		DurationEffectElapsed += DeltaTime;
+// 		DurationEffectRemaining = SkillInfo.Duration - DurationEffectElapsed;
+//
+// 		// 지속시간이 지난 후 효과를 종료합니다.
+// 		if(DurationEffectElapsed >= SkillInfo.Duration)
+// 		{
+// 			EndDurationEffect();
+// 		}
+// 	}
+// }
+#pragma endregion
 
-		// 지속시간이 지난 후 효과를 종료합니다.
-		if(DurationEffectElapsed >= SkillInfo.Duration)
+#pragma region SkillCutScene
+void UPRBaseSkill::PlaySkillCutScene_Implementation()
+{
+	if(SkillCutScene != nullptr)
+	{
+		APRPlayerCharacter* SkillOwnerPlayer = Cast<APRPlayerCharacter>(GetSkillOwner());
+		if(SkillOwnerPlayer != nullptr)
 		{
-			EndDurationEffect();
+			// SkillCamera를 활성화합니다.
+			SkillOwnerPlayer->ActivateSkillCamera();
+
+			// Template Sequence Player 생성
+			UTemplateSequencePlayer::CreateTemplateSequencePlayer(SkillOwnerPlayer->GetWorld(), SkillCutScene, SkillCutScenePlaybackSettings, SkillCutSceneSequenceActor);
+
+			// Template Sequence 애니메이션을 적용할 액터를 바인딩합니다.
+			SkillCutSceneSequenceActor->SetBinding(SkillOwnerPlayer);
+			// 스킬 컷신의 재생이 끝난 후 실행할 함수를 바인딩합니다.
+			SkillCutSceneSequenceActor->GetSequencePlayer()->OnFinished.AddDynamic(this, &UPRBaseSkill::OnFinishedSkillCutScene);
+			
+			SkillCutSceneSequenceActor->GetSequencePlayer()->Play();
+		}
+	}
+}
+
+void UPRBaseSkill::OnFinishedSkillCutScene_Implementation()
+{
+	APRPlayerCharacter* SkillOwnerPlayer = Cast<APRPlayerCharacter>(GetSkillOwner());
+	if(IsValid(SkillOwnerPlayer) == true)
+	{
+		// SkillCamera를 비활성화합니다
+		SkillOwnerPlayer->DeactivateSkillCamera();
+
+		// SkillCutSceneSequenceActor를 제거합니다.
+		if(IsValid(SkillCutSceneSequenceActor) == true)
+		{
+			SkillCutSceneSequenceActor->ConditionalBeginDestroy();
+			SkillCutSceneSequenceActor = nullptr;
 		}
 	}
 }

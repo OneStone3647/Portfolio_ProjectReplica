@@ -80,6 +80,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "SkillSystem")
 	class UPRBaseSkill* GetSkillFromName(const FText& NewSkillName) const;
+
+	/**
+	 * 인자 값에 해당하는 클래스의 스킬을 SkillInventory에서 찾아 반환하는 함수입니다.
+	 *
+	 * @param NewSkill SkillInventory에서 찾아 반환할 스킬의 클래스 레퍼런스입니다.
+	 */
+	class UPRBaseSkill* GetSkill(TSubclassOf<UPRBaseSkill> NewSkill);
 	
 protected:
 	/**

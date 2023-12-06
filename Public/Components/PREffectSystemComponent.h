@@ -78,18 +78,6 @@ public:
 	TArray<class UPRParticleEffect*> Effects;
 };
 
-// /** Effect를 넣은 풀의 정보를 가진 구조체입니다. */
-// USTRUCT(Atomic, BlueprintType)
-// struct FPREffectPool
-// {
-// 	GENERATED_BODY()
-//
-// public:
-// 	/** Effect를 넣은 풀입니다. */
-// 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PREffectPool")
-// 	TArray<class UPREffect*> Effects;
-// };
-
 /** EffectPool의 활성화된 Effect의 Index 정보를 가진 구조체입니다. */
 USTRUCT(Atomic, BlueprintType)
 struct FPRActivateIndex
@@ -159,6 +147,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
 	bool IsValidEffectPool(UFXSystemAsset* FXSystemAsset) const;
 
+	/** NiagaraEffectPool에 존재하는 Effect인지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	bool IsValidNiagaraEffectPool(UNiagaraSystem* NewNiagaraSystem) const;
+	
+	/** ParticleEffectPool에 존재하는 Effect인지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	bool IsValidParticleEffectPool(UParticleSystem* NewParticleSystem) const;
+
 	/** 입력받은 인자를 바탕으로 NiagaraEffect를 생성하고 반환하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
 	UPRNiagaraEffect* CreateNiagaraEffect(UNiagaraSystem* NiagaraSystem);
@@ -195,6 +191,30 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
 	void SetEffectsCustomDepth(bool bNewRenderCustomDepth, int32 NewCustomDepthStencilValue);
 
+	/** 인자로 받은 Effect의 EffectPool을 모두 비활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void DeactivateEffectPool(UFXSystemAsset* NewDeactivateEffect);
+
+	/** 인자로 받은 NiagaraEffect의 EffectPool을 모두 비활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void DeactivateNiagaraEffectPool(UNiagaraSystem* NewDeactivateNiagaraEffect);
+
+	/** 인자로 받은 ParticleEffect의 EffectPool을 모두 비활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void DeactivateParticleEffectPool(UParticleSystem* NewDeactivateParticleEffect);
+
+	/** TimeStop에 영향을 받았는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	bool IsTimeStopActive() const;
+
+	/** TimeStop에 영향을 받을 때 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void TimeStopActive();
+
+	/** TimeStop에 영향을 받지 않을 때 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "EffectSystem")
+	void TimeStopDeactive();
+
 private:
 	// /** Effect를 넣은 풀입니다. */
 	// UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
@@ -220,21 +240,21 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
 	TMap<UParticleSystem*, FPRActivateIndex> ActivateParticleEffectIndexes;
 
-	/** TimeStop을 무시하고 Effect를 재생하는지 나타내는 변수입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
-	bool bIgnoreTimeStop;
+	// /** TimeStop을 무시하고 Effect를 재생하는지 나타내는 변수입니다. */
+	// UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
+	// bool bIgnoreTimeStop;
 
-	/** TimeStop의 실행을 나타내는 변수입니다. */
+	/** TimeStop에 영향을 받는지 나타내는 변수입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "EffectSystem", meta = (AllowPrivateAccess = "true"))
-	bool bActivateTimeStop;
+	bool bTimeStopActive;
 	
 public:
-	/** 입력받은 인자로 bIgnoreTimeStop을 설정하는 함수입니다. */
-	void SetIgnoreTimeStop(bool bNewIgnoreTimeStop);
+	// /** 입력받은 인자로 bIgnoreTimeStop을 설정하는 함수입니다. */
+	// void SetIgnoreTimeStop(bool bNewIgnoreTimeStop);
 
-	/** 입력받은 인자로 bActivateTimeStop을 설정하는 함수입니다. */
-	UFUNCTION()
-	void SetActivateTimeStop(bool bNewActivateTimeStop);
+	// /** 입력받은 인자로 bActivateTimeStop을 설정하는 함수입니다. */
+	// UFUNCTION()
+	// void SetActivateTimeStop(bool bNewActivateTimeStop);
 
 #pragma region DataTable
 private:

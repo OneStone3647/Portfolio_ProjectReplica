@@ -45,6 +45,7 @@ void UPRNiagaraEffect::Activate()
 
 	if(NiagaraEffect != nullptr)
 	{
+		NiagaraEffect->SetHiddenInGame(false);
 		NiagaraEffect->Activate();
 	}
 }
@@ -55,6 +56,7 @@ void UPRNiagaraEffect::Deactivate()
 
 	if(NiagaraEffect != nullptr)
 	{
+		NiagaraEffect->SetHiddenInGame(true);
 		NiagaraEffect->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		NiagaraEffect->Deactivate();
 	}

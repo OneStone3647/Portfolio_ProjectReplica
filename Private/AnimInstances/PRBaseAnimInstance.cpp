@@ -154,6 +154,16 @@ void UPRBaseAnimInstance::SetGait(EPRGait NewGait)
 #pragma endregion 
 
 #pragma region FootIK
+void UPRBaseAnimInstance::ActivateFootIK()
+{
+	bActiveFootIK = true;
+}
+
+void UPRBaseAnimInstance::DeactivateFootIK()
+{
+	bActiveFootIK = false;
+}
+
 void UPRBaseAnimInstance::InitializeFootIK()
 {
 	if(IsValid(PROwner) == true && PROwner->GetMesh()->SkeletalMesh != nullptr)
@@ -336,10 +346,5 @@ FRotator UPRBaseAnimInstance::CalculateNormalToRotator(FVector NormalVector)
 	FRotator ResultRotation = FRotator(SecondAtan2, 0.0f, FirstAtan2);
 
 	return ResultRotation;
-}
-
-void UPRBaseAnimInstance::SetActiveFootIK(bool bFlag)
-{
-	bActiveFootIK = bFlag;
 }
 #pragma endregion 

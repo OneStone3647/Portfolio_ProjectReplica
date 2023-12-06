@@ -2,7 +2,6 @@
 
 
 #include "AnimNotifies/AN_PRSetActiveFootIK.h"
-
 #include "AnimInstances/PRBaseAnimInstance.h"
 #include "Characters/PRBaseCharacter.h"
 #include "Components/PRMovementSystemComponent.h"
@@ -44,7 +43,7 @@ void UAN_PRSetActiveFootIK::ActiveFootIK(USkeletalMeshComponent* MeshComp)
 		UPRBaseAnimInstance* PRBaseAnimInstance = Cast<UPRBaseAnimInstance>(MeshComp->GetAnimInstance());
 		if(PRBaseAnimInstance != nullptr)
 		{
-			PRBaseAnimInstance->SetActiveFootIK(true);
+			PRBaseAnimInstance->ActivateFootIK();
 		}
 	}
 }

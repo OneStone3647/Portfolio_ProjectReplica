@@ -48,22 +48,29 @@ void APRJudgementSlashProjectile::SpawnImpactNiagaraEffect(FVector Location, FRo
 	}
 }
 
-void APRJudgementSlashProjectile::UpdatePooledObject_Implementation(float DeltaTime)
-{
-	Super::UpdatePooledObject_Implementation(DeltaTime);
+// void APRJudgementSlashProjectile::UpdatePooledObject_Implementation(float DeltaTime)
+// {
+// 	Super::UpdatePooledObject_Implementation(DeltaTime);
+//
+// 	if(IsValid(GetObjectOwner()) == true)
+// 	{
+// 		// 오브젝트 소유자의 커스텀 시간 흐름 속도를 동기화합니다.
+// 		CustomTimeDilation = GetObjectOwner()->CustomTimeDilation;
+// 	}
+// }
 
-	if(IsValid(GetObjectOwner()) == true)
-	{
-		// 오브젝트 소유자의 커스텀 시간 흐름 속도를 동기화합니다.
-		CustomTimeDilation = GetObjectOwner()->CustomTimeDilation;
-	}
+void APRJudgementSlashProjectile::Activate_Implementation()
+{
+	Super::Activate_Implementation();
+	
+	GetHitBox()->SetCollisionProfileName("PlayerProjectile");
 }
 
 void APRJudgementSlashProjectile::Deactivate_Implementation()
 {
-	ClearHitActors(HitActors);
-	
 	Super::Deactivate_Implementation();
+	
+	ClearHitActors(HitActors);
 }
 
 void APRJudgementSlashProjectile::InitializeSpawnLocation_Implementation()

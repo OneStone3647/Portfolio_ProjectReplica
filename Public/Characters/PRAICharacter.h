@@ -7,8 +7,12 @@
 #include "Components/WidgetComponent.h"
 #include "PRAICharacter.generated.h"
 
+class APRAISpawner;
 class UPRTargetAimSystemComponent;
 class UWidgetComponent;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAIDeactivate, APRAICharacter*, AICharacter);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDynamicAIDeactivate, APRAICharacter*, AICharacter);
 
 /**
  * AI 캐릭터 클래스입니다.
@@ -28,6 +32,61 @@ protected:
 protected:
 	virtual void TakeHit(AActor* DamageCauser) override;
 	virtual void Dead() override;
+
+#pragma region Activate
+public:
+	/** AI 캐릭터가 활성화되었는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "Activate")
+	bool IsActivate() const;	
+	
+	/** AI 캐릭터를 활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "Activate")
+	void Activate();
+
+	/** AI 캐릭터를 비활성화 하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "Activate")
+	void Deactivate();
+
+protected:
+	/** AI 캐릭터의 활성화를 나타내는 변수입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Activate")
+	bool bActivate;
+	
+	/** AI 캐릭터가 사망한 후 비활성화가 되는 시간입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Activate", meta = (ClampMin = "0"))
+	float DeactivateDelay;
+	
+public:
+	/** 입력받은 인자로 DeactivateDelay를 설정하는 함수입니다. */
+	void SetDeactivateDelay(float NewDeactivateDelay);
+
+public:
+	/** AI가 비활성화될 때 실행하는 델리게이트입니다. */
+	FOnAIDeactivate OnAIDeactivate;
+
+	/** 동적으로 생성한 AI가 비활성화될 때 OnAIDeactivate와 함께 실행하는 델리게이트입니다. */
+	FOnDynamicAIDeactivate OnDynamicAIDeactivate;
+#pragma endregion
+
+#pragma region TimeStop
+public:
+	/** TimeStop에 영향을 받았는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStop")
+	bool IsTimeStopActive() const;
+
+	/** TimeStop에 영향을 받을 때 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStop")
+	void TimeStopActive();
+
+	/** TimeStop에 영향을 받지 않을 때 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "TimeStop")
+	void TimeStopDeactive();
+	
+protected:
+	/** TimeStop에 영향을 받았는지 나타내는 변수입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "TimeStop")
+	bool bTimeStopActive;
+#pragma endregion 
 
 #pragma region TargetAimSystem
 public:
@@ -78,5 +137,33 @@ private:
 public:
 	/** HealthPointBart을 반환하는 함수입니다. */
 	class UWidgetComponent* GetHealthPointBar() const;
-#pragma endregion 
+#pragma endregion
+
+#pragma region Spawner
+protected:
+	/** AI 캐릭터를 Spawn한 Spawner입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Spawner")
+	APRAISpawner* Spawner;
+
+public:
+	/** Spawner를 반환하는 함수입니다. */
+	APRAISpawner* GetSpawner() const;
+	
+	/** 입력받은 인자로 Spawner를 설정하는 함수입니다. */
+	void SetSpawner(APRAISpawner* NewSpawner);
+#pragma endregion
+
+#pragma region AIListIndex
+protected:
+	/** GameMode의 AISpawnSystem의 AIPool에서 AI 캐릭터 클래스에 해당하는 AIList의 Index입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AIListIndex")
+	int32 AIListIndex;
+
+public:
+	/** AIListIndex를 반환하는 함수입니다. */
+	int32 GetAIListIndex() const;
+
+	/** 입력받은 인자로 AIListIndex를 설정하는 함수입니다. */
+	void SetAIListIndex(int32 NewAIListIndex);
+#pragma endregion
 };

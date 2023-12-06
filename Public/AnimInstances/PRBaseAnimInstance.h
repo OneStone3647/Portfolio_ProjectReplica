@@ -132,6 +132,15 @@ public:
 #pragma endregion
 
 #pragma region FootIK
+public:	
+	/** FootIK를 활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "FootIK")
+	void ActivateFootIK();
+
+	/** FootIK를 비활성화하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "FootIK")
+	void DeactivateFootIK();
+
 protected:
 	/** FootIK의 값을 초기화하는 함수입니다. */
 	void InitializeFootIK();
@@ -263,9 +272,5 @@ protected:
 	/** 오른쪽 조인트 타겟의 위치입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FootIk")
 	FVector JointTargetRight;
-	
-public:
-	/** 입력받은 인자로 bActiveFootIK를 설정하는 함수입니다. */
-	void SetActiveFootIK(bool bFlag);
 #pragma endregion 
 };

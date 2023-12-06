@@ -7,11 +7,15 @@
 #include "Components/PRMovementSystemComponent.h"
 #include "Components/PRStateSystemComponent.h"
 #include "Components/PRTargetingSystemComponent.h"
+#include "Objects/PRPooledObject.h"
 
 UPRSkill_Kyle_DodgeAttack::UPRSkill_Kyle_DodgeAttack()
 {
 	// TickableGameObject
 	bTickable = true;
+
+	// ObjectInfo
+	DodgeAttackProjectile = FPRPooledObjectInfo();
 	
 	// DodgeAttack
 	SkillDurationTime = 2.5f;
@@ -29,6 +33,13 @@ void UPRSkill_Kyle_DodgeAttack::InitializeSkill_Implementation()
 	// 데이터 테이블에서 스킬이 사용하는 PRAnimMontage들을 가져옵니다.
 	if(IsValid(GetSkillOwner()) == true)
 	{
+		// ObjectPool 생성
+		if(DodgeAttackProjectile.PooledObjectClass != nullptr
+			&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(DodgeAttackProjectile.PooledObjectClass) == false)
+		{
+			GetSkillOwner()->GetObjectPoolSystem()->CreateObjectPool(DodgeAttackProjectile);
+		}
+		
 		// ComboAnimMontage를 데이터 테이블에서 받아옵니다.
 		if(PRComboAnimMontage == FPRComboAnimMontage())
 		{

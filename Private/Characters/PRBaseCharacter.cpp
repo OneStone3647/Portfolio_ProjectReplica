@@ -2,6 +2,9 @@
 
 
 #include "Characters/PRBaseCharacter.h"
+
+#include "ProjectReplicaGameMode.h"
+#include "Characters/PRAICharacter.h"
 #include "Characters/PRPlayerCharacter.h"
 #include "Components/PRAnimSystemComponent.h"
 #include "Components/PRMovementSystemComponent.h"
@@ -14,6 +17,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/PRTimeStopSystemComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
 APRBaseCharacter::APRBaseCharacter()
@@ -59,14 +63,14 @@ APRBaseCharacter::APRBaseCharacter()
 	// WeaponSystem
 	WeaponSystem = CreateDefaultSubobject<UPRWeaponSystemComponent>(TEXT("WeaponSystem"));
 
-	// SkillSystem
-	SkillSystem = CreateDefaultSubobject<UPRSkillSystemComponent>(TEXT("SkillSystem"));
+	// EffectSystem
+	EffectSystem = CreateDefaultSubobject<UPREffectSystemComponent>(TEXT("EffectSystem"));
 
 	// ObjectPoolSystem
 	ObjectPoolSystem = CreateDefaultSubobject<UPRObjectPoolSystemComponent>(TEXT("ObjectPoolSystem"));
-
-	// EffectSystem
-	EffectSystem = CreateDefaultSubobject<UPREffectSystemComponent>(TEXT("EffectSystem"));
+	
+	// SkillSystem
+	SkillSystem = CreateDefaultSubobject<UPRSkillSystemComponent>(TEXT("SkillSystem"));
 
 	// CharacterMovement
 	GetCharacterMovement()->bOrientRotationToMovement = true;								// 캐릭터가 이동하는 방향으로 회전합니다.
@@ -139,6 +143,7 @@ float APRBaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 	// 캐릭터가 죽지않았을 경우 피격을 적용합니다.
 	if(GetStateSystem()->IsDead() == false && GetStateSystem()->IsInvincible() == false)
 	{
+		// 대미지 커서가 AI일 경우
 		TakeHit(DamageCauser);
 		GetStatSystem()->TakeDamage(FinalDamage);
 	}
@@ -156,28 +161,43 @@ void APRBaseCharacter::TakeHit(AActor* DamageCauser)
 {
 	StateSystem->SetIsHit(true);
 
-	// TimeStop 상태가 아닌경우
+	// 대미지 커서가 플레이어 캐릭터일 경우
 	APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(DamageCauser);
-	if(PRPlayerCharacter == nullptr
-		|| PRPlayerCharacter->GetTimeStopSystem()->IsActivateTimeStop() == false)
+	if(IsValid(PRPlayerCharacter) == true)
 	{
-		// 대미지를 준 액터를 바라봅니다
-		if(IsValid(DamageCauser) == true)
+		// TimeStop 상태가 아닌 경우 대미지를 준 액터를 바라봅니다.
+		// if(PRPlayerCharacter->GetTimeStopSystem()->IsActivateTimeStop() == false)
+		// {
+		// 	const FVector PRPlayerCharacterReverseForwardVector = PRPlayerCharacter->GetActorForwardVector() * -1.0f;
+		// 	const FRotator LookAtRotation = UKismetMathLibrary::MakeRotFromX(PRPlayerCharacterReverseForwardVector);
+		// 	SetActorRotation(LookAtRotation);
+		// 	PlayAnimMontage(HitAnimMontage.AnimMontage);
+		// }
+		AProjectReplicaGameMode* PRGameMode = Cast<AProjectReplicaGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+		if(IsValid(PRGameMode) && !PRGameMode->GetTimeStopSystem()->IsActivateTimeStop())
 		{
-			const FVector DamageCauserReverseForwardVector = DamageCauser->GetActorForwardVector() * -1.0f;
-			const FRotator LookAtRotation = UKismetMathLibrary::MakeRotFromX(DamageCauserReverseForwardVector);
+			const FVector PRPlayerCharacterReverseForwardVector = PRPlayerCharacter->GetActorForwardVector() * -1.0f;
+			const FRotator LookAtRotation = UKismetMathLibrary::MakeRotFromX(PRPlayerCharacterReverseForwardVector);
 			SetActorRotation(LookAtRotation);
+			PlayAnimMontage(HitAnimMontage.AnimMontage);
+		}
 
-			APRPlayerCharacter* PRPlayerDamageCauser = Cast<APRPlayerCharacter>(DamageCauser);
-			if(PRPlayerDamageCauser != nullptr)
-			{
-				PRPlayerDamageCauser->ActivateComboCount();
-			}
+		// 플레이어 캐릭터의 ComboCount를 실행합니다.
+		PRPlayerCharacter->ActivateComboCount();
+	}
+	else
+	{
+		// 대미지 커서가 AI일 경우
+		APRAICharacter* PRAICharacter = Cast<APRAICharacter>(DamageCauser);
+		if(IsValid(PRAICharacter) == true)
+		{
+			// 대미지를 준 액터를 바라봅니다.
+			const FVector PRAICharacterReverseForwardVector = PRAICharacter->GetActorForwardVector() * -1.0f;
+			const FRotator LookAtRotation = UKismetMathLibrary::MakeRotFromX(PRAICharacterReverseForwardVector);
+			SetActorRotation(LookAtRotation);
+			PlayAnimMontage(HitAnimMontage.AnimMontage);
 		}
 	}
-
-	// GetAnimSystem()->PlayPRAnimMontage(HitAnimMontage);
-	PlayAnimMontage(HitAnimMontage.AnimMontage);
 }
 
 void APRBaseCharacter::Dead()
@@ -221,17 +241,42 @@ void APRBaseCharacter::InitializePRAnimMontages()
 #pragma endregion 
 
 #pragma region WeaponSystem
-// FPRWeaponGroup APRBaseCharacter::GetEquippedWeaponGroup() const
-// {
-// 	return GetWeaponSystem()->GetEquippedWeaponGroup();
-// }
+APRBaseWeapon* APRBaseCharacter::DrawEquippedWeapon()
+{
+	if(GetWeaponSystem()->IsValidWeaponIndex(GetWeaponSystem()->GetEquippedWeaponIndex()) == true)
+	{
+		int32 EquippedWeaponIndex = GetWeaponSystem()->GetEquippedWeaponIndex();
+
+		return GetWeaponSystem()->DrawWeapon(EquippedWeaponIndex);
+	}
+
+	return nullptr;
+}
+
+APRBaseWeapon* APRBaseCharacter::SheathEquippedWeapon()
+{
+	if(GetWeaponSystem()->IsValidWeaponIndex(GetWeaponSystem()->GetEquippedWeaponIndex()) == true)
+	{
+		int32 EquippedWeaponIndex = GetWeaponSystem()->GetEquippedWeaponIndex();
+
+		return GetWeaponSystem()->SheathWeapon(EquippedWeaponIndex);
+	}
+
+	return nullptr;
+}
+#pragma endregion 
+
+#pragma region SkillSystem
+UPRBaseSkill* APRBaseCharacter::GetSkillFromCommand(EPRCommandSkill NewCommandSkill) const
+{
+	return GetSkillSystem()->GetSkillFromCommand(NewCommandSkill);
+}
 #pragma endregion 
 
 #pragma region Dodge
 void APRBaseCharacter::InitializeDodgePRAnimMontages()
 {
 	DodgePRAnimMontages = GetAnimSystem()->GetPRAnimMontageFromPRAnimMontageDataTableByIDRangeToMap(ForwardDodgePRAnimMontageID, AerialForwardDodgePRAnimMontageID);
-
 }
 
 void APRBaseCharacter::Dodge()

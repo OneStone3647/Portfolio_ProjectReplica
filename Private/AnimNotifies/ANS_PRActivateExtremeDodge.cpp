@@ -13,7 +13,7 @@ UANS_PRActivateExtremeDodge::UANS_PRActivateExtremeDodge()
 
 	OwnerPRPlayerCharacter = nullptr;
 	bActivateDebug = false;
-	DebugDuration = 5.0f;
+	DebugDuration = 3.0f;
 }
 
 void UANS_PRActivateExtremeDodge::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration)

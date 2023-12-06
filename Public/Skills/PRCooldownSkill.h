@@ -30,6 +30,9 @@ public:
 	 */
 	virtual bool ActivateSkill_Implementation() override;
 
+	/** 스킬을 실행할 수 있는지 판별하는 함수입니다. */
+	virtual bool IsCanActivateSkill_Implementation() const override;
+
 #pragma region Cooldown
 public:
 	/** 재사용 대기시간을 실행하는 함수입니다. */
@@ -56,8 +59,8 @@ protected:
 	void EndCoolDown();
 	virtual void EndCoolDown_Implementation();
 
-	/** bIgnoreTimeStop이 true일 때 재사용 대기시간을 최신화하는 함수입니다. */
-	void UpdateCooldown(float DeltaTime);
+	// /** bIgnoreTimeStop이 true일 때 재사용 대기시간을 최신화하는 함수입니다. */
+	// void UpdateCooldown(float DeltaTime);
 
 protected:
 	/** 재사용 대기시간에 사용하는 TimerHandle입니다. */
@@ -67,12 +70,12 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown")
 	bool bActivateCooldown;
 
-	/** 재사용 대기시간의 남은 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown", Transient)
-	float CooldownRemaining;
-
-	/** 재사용 대기시간의 경과 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown", Transient)
-	float CooldownElapsed;
+	// /** 재사용 대기시간의 남은 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	// UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown", Transient)
+	// float CooldownRemaining;
+	//
+	// /** 재사용 대기시간의 경과 시간입니다. bIgnoreTimeStop가 true일 경우 사용합니다. */
+	// UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cooldown", Transient)
+	// float CooldownElapsed;
 #pragma endregion
 };

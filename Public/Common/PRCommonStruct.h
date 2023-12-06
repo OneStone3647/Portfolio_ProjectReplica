@@ -17,6 +17,8 @@
 #include "Engine/DataTable.h"
 #include "PRCommonStruct.generated.h"
 
+class APRAICharacter;
+
 #pragma region PRAnimMontage
 /**
  * 재생할 AnimMontage와 재생 옵션을 관리하는 변수를 가진 구조체입니다.
@@ -389,7 +391,6 @@ public:
 	UTexture2D* Icon;
 };
 
-
 /**
  * 설정할 Able(가능 상태)와 설정 값을 변수로 가진 구조체입니다.
  */
@@ -471,6 +472,93 @@ public:
 		return this->Action != NewPRActionState.Action
 				|| this->bActivate != NewPRActionState.bActivate
 				|| this->bAble != NewPRActionState.bAble;
+	}
+};
+
+/** 캐릭터의 스탯(능력치)를 구성하는 변수를 가진 구조체입니다. */
+USTRUCT(Atomic, BlueprintType)
+struct FPRCharacterStat : public FTableRowBase
+{
+	GENERATED_BODY()
+
+public:
+	FPRCharacterStat()
+		: MaxHealthPoint(500.0f)
+		, HealthPoint(500.0f)
+		, AttackPoint(10.0f)
+		, DefencePoint(10.0f)
+		, CriticalRate(10.0f)
+		, CriticalDamage(50.0f)
+	{}
+
+	FPRCharacterStat(float NewMaxHealthPoint, float NewHealthPoint, float NewAttackPoint, float NewDefencePoint, float NewCriticalRate,
+						float NewCriticalDamage)
+		: MaxHealthPoint(NewMaxHealthPoint)
+		, HealthPoint(NewHealthPoint)
+		, AttackPoint(NewAttackPoint)
+		, DefencePoint(NewDefencePoint)
+		, CriticalRate(NewCriticalRate)
+		, CriticalDamage(NewCriticalDamage)
+	{}
+	
+
+public:
+	/** 최대 체력입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRCharacterStat")
+	float MaxHealthPoint;
+
+	/** 현재 체력입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRCharacterStat", Transient)
+	float HealthPoint;
+	
+	/**
+	 * 캐릭터의 공격력입니다.
+	 * 무기의 대미지와는 별개로 적용됩니다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRCharacterStat")
+	float AttackPoint;
+
+	/** 캐릭터의 방어력입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRCharacterStat")
+	float DefencePoint;
+
+	/** 캐릭터의 치명타 확률입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRCharacterStat")
+	float CriticalRate;
+
+	/** 캐릭터의 치명타 피해입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRCharacterStat")
+	float CriticalDamage;
+
+public:
+	/**
+	 * 인자로 받은 PRCharacterStat와 같은지 판별하는 == 연산자 오버로딩입니다.
+	 * 
+	 * @param NewPRCharacterStat 비교하는 PRCharacterStat와 같은지 판별할 PRCharacterStat입니다.
+	 * @return 인자로 받은 PRAICharacterInfo와 같을 경우 true를 다를 경우 false를 반환합니다.
+	 */
+	FORCEINLINE bool operator==(const FPRCharacterStat& NewPRCharacterStat) const
+	{
+		return this->MaxHealthPoint == NewPRCharacterStat.MaxHealthPoint
+				&& this->AttackPoint == NewPRCharacterStat.AttackPoint
+				&& this->DefencePoint == NewPRCharacterStat.DefencePoint
+				&& this->CriticalRate == NewPRCharacterStat.CriticalRate
+				&& this->CriticalDamage == NewPRCharacterStat.CriticalDamage;
+	}
+
+	/**
+	 * 인자로 받은 PRCharacterStat와 다른지 판별하는 != 연산자 오버로딩입니다.
+	 * 
+	 * @param NewPRCharacterStat 비교하는 PRCharacterStat와 같은지 판별할 PRCharacterStat입니다.
+	 * @return 인자로 받은 PRCharacterStat와 다를 경우 true를 같을 경우 false를 반환합니다.
+	 */
+	FORCEINLINE bool operator!=(const FPRCharacterStat& NewPRCharacterStat) const
+	{
+		return this->MaxHealthPoint != NewPRCharacterStat.MaxHealthPoint
+				|| this->AttackPoint != NewPRCharacterStat.AttackPoint
+				|| this->DefencePoint != NewPRCharacterStat.DefencePoint
+				|| this->CriticalRate != NewPRCharacterStat.CriticalRate
+				|| this->CriticalDamage != NewPRCharacterStat.CriticalDamage;
 	}
 };
 

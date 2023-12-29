@@ -16,12 +16,12 @@ APRJudgementCutArea::APRJudgementCutArea()
 {
 	// DamageArea
 	DamageArea = CreateDefaultSubobject<USphereComponent>(TEXT("DamageArea"));
-	DamageArea->SetupAttachment(RootComponent);
 	DamageArea->SetCollisionProfileName("NoCollision");
+	SetRootComponent(DamageArea);
 	
 	// JudgementCutEffect
 	JudgementCutEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("JudgementCutEffect"));
-	JudgementCutEffect->SetupAttachment(DamageArea);
+	JudgementCutEffect->SetupAttachment(RootComponent);
 
 	HitSoundSource = nullptr;
 	HitSounds.Empty();
@@ -165,6 +165,7 @@ void APRJudgementCutArea::Activate_Implementation()
 {
 	Super::Activate_Implementation();
 
+	// InitializeSpawnLocation();
 	// CooldownElapsed = 0.0f;
 	DamageCount = 0;
 	JudgementCutEffect->Activate(true);
@@ -211,7 +212,18 @@ void APRJudgementCutArea::ActivateDamageArea()
 			if(Hit.Actor.IsValid() == true)
 			{
 				AActor* HitActor = Hit.GetActor();
-				UGameplayStatics::ApplyDamage(HitActor, Damage, PRCharacter->GetController(), PRCharacter, nullptr);
+				// UGameplayStatics::ApplyDamage(HitActor, Damage, PRCharacter->GetController(), PRCharacter, nullptr);
+				
+				if(HitActor->GetClass()->ImplementsInterface(UInterface_PRDamageable::StaticClass()))
+				{
+					FPRDamageInfo DamageInfo;
+					DamageInfo.Amount = Damage;
+					DamageInfo.DamageType = EPRDamageType::DamageType_Melee;
+					DamageInfo.DamageResponse = EPRDamageResponse::DamageResponse_HitReaction;
+
+					bool bWasDamaged = IInterface_PRDamageable::Execute_TakeDamage(HitActor, DamageInfo);
+				}
+				
 				// Hit된 액터를 DamageArea로 끌어 당깁니다.
 				PullTargetToDamageArea(HitActor);
 			}

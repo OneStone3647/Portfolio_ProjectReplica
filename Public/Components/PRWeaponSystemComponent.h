@@ -36,6 +36,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
 	APRBaseWeapon* GetWeapon(int32 NewWeaponInventoryIndex) const;
 
+	/** Index에 해당하는 무기를 발도하였는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "WeaponSystem")
+	bool IsDrawWeapon(int32 WeaponIndex = 0) const;
+
 	/**
 	 * WeaponInventory에서 인자로 받은 Index 값에 해당하는 무기를 발도하는 함수입니다.
 	 *

@@ -19,6 +19,7 @@ public:
 	UPRBaseAnimInstance();
 
 protected:
+	virtual void NativeInitializeAnimation() override;
 	virtual void NativeBeginPlay() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
@@ -272,5 +273,21 @@ protected:
 	/** 오른쪽 조인트 타겟의 위치입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "FootIk")
 	FVector JointTargetRight;
+#pragma endregion
+
+#pragma region AnimMontage
+// public:
+// 	void PlayAnAnimMontage(UAnimMontage* AnimMontage);
+// 	
+// private:
+// 	UFUNCTION()
+// 	void FunctionToExecuteOnAnimationBlendOut(UAnimMontage* AnimMontage, bool bInterrupted);
+//
+// 	UFUNCTION()
+// 	void FunctionToExecuteOnAnimationEnd(UAnimMontage* AnimMontage, bool bInterrupted);
+
+// public:
+// 	FOnMontageEnded BlendOutDelegate;
+// 	FOnMontageEnded CompleteDelegate;
 #pragma endregion 
 };

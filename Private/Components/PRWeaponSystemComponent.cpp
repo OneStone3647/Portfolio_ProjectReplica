@@ -59,6 +59,11 @@ APRBaseWeapon* UPRWeaponSystemComponent::GetWeapon(int32 NewWeaponInventoryIndex
 	return nullptr;
 }
 
+bool UPRWeaponSystemComponent::IsDrawWeapon(int32 WeaponIndex) const
+{
+	return GetWeapon(WeaponIndex)->IsDraw();
+}
+
 APRBaseWeapon* UPRWeaponSystemComponent::DrawWeapon(int32 DrawWeaponIndex)
 {
 	// WeaponInventory에 Index 값에 해당하는 무기가 존재하는지 확인합니다.

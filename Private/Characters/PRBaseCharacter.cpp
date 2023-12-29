@@ -2,14 +2,14 @@
 
 
 #include "Characters/PRBaseCharacter.h"
-
 #include "ProjectReplicaGameMode.h"
 #include "Characters/PRAICharacter.h"
 #include "Characters/PRPlayerCharacter.h"
+#include "Components/PRStatSystemComponent.h"
+#include "Components/PRDamageSystemComponent.h"
 #include "Components/PRAnimSystemComponent.h"
 #include "Components/PRMovementSystemComponent.h"
 #include "Components/PRStateSystemComponent.h"
-#include "Components/PRStatSystemComponent.h"
 #include "Components/PRWeaponSystemComponent.h"
 #include "Components/PRSkillSystemComponent.h"
 #include "Components/PRObjectPoolSystemComponent.h"
@@ -47,6 +47,12 @@ APRBaseCharacter::APRBaseCharacter()
 	
 	// MovementInput
 	bJumped = false;
+	
+	// StatSystem
+	StatSystem = CreateDefaultSubobject<UPRStatSystemComponent>(TEXT("StatSystem"));
+
+	// DamageSystem
+	DamageSystem = CreateDefaultSubobject<UPRDamageSystemComponent>(TEXT("DamageSystem"));
 
 	// AnimSystem
 	AnimSystem = CreateDefaultSubobject<UPRAnimSystemComponent>(TEXT("AnimSystem"));
@@ -56,9 +62,6 @@ APRBaseCharacter::APRBaseCharacter()
 
 	// StateSystem
 	StateSystem = CreateDefaultSubobject<UPRStateSystemComponent>(TEXT("StateSystem"));
-	
-	// StatSystem
-	StatSystem = CreateDefaultSubobject<UPRStatSystemComponent>(TEXT("StatSystem"));
 
 	// WeaponSystem
 	WeaponSystem = CreateDefaultSubobject<UPRWeaponSystemComponent>(TEXT("WeaponSystem"));
@@ -98,7 +101,22 @@ void APRBaseCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	GetStatSystem()->OnHealthPointIsZeroDelegate.AddUFunction(this, FName("Dead"));
+	// DamageSystem
+	GetDamageSystem()->OnDeathDelegate.AddDynamic(this, &APRBaseCharacter::Death);
+	GetDamageSystem()->OnBlockedDelegate.AddDynamic(this, &APRBaseCharacter::Blocked);
+	GetDamageSystem()->OnDamageResponseDelegate.AddDynamic(this, &APRBaseCharacter::DamageResponse);
+	
+	// StatSystem
+	// GetStatSystem()->OnHealthPointIsZeroDelegate.AddUFunction(this, FName("Dead"));
+
+	// ObjectPool 초기화
+	GetObjectPoolSystem()->InitializeObjectPool();
+	
+	// EffectPool 초기화
+	GetEffectSystem()->InitializeEffectPool();
+
+	// WeaponSystem 초기화
+	GetWeaponSystem()->InitializeWeaponInventory();
 }
 
 void APRBaseCharacter::BeginPlay()
@@ -140,6 +158,8 @@ float APRBaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 {
 	float FinalDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
+	PR_LOG_SCREEN("TakeDamage, ApplyDamage -> 인터페이스 TakeDamage로 수정바람");
+
 	// 캐릭터가 죽지않았을 경우 피격을 적용합니다.
 	if(GetStateSystem()->IsDead() == false && GetStateSystem()->IsInvincible() == false)
 	{
@@ -151,10 +171,67 @@ float APRBaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 	return FinalDamage;
 }
 
+#pragma region Interface_Damageable
+float APRBaseCharacter::GetCurrentHealth_Implementation()
+{
+	// if(GetDamageSystem() != nullptr)
+	// {
+	// 	return GetDamageSystem()->GetHealth();
+	// }
+
+	if(GetStatSystem() != nullptr)
+	{
+		return GetStatSystem()->GetCharacterStat().HealthPoint;
+	}
+	
+	return 0.0f;
+}
+
+float APRBaseCharacter::GetMaxHealth_Implementation()
+{
+	// if(GetDamageSystem() != nullptr)
+	// {
+	// 	return GetDamageSystem()->GetMaxHealth();
+	// }
+
+	if(GetStatSystem() != nullptr)
+	{
+		return GetStatSystem()->GetCharacterStat().MaxHealthPoint;
+	}
+	
+	return 0.0f;
+}
+
+float APRBaseCharacter::Heal_Implementation(float Amount)
+{
+	if(GetDamageSystem() != nullptr)
+	{
+		return GetDamageSystem()->Heal(Amount);
+	}
+	
+	return 0.0f;
+}
+
+bool APRBaseCharacter::TakeDamage_Implementation(FPRDamageInfo DamageInfo)
+{
+	if(GetDamageSystem() != nullptr)
+	{
+		return GetDamageSystem()->TakeDamage(DamageInfo);
+	}
+	
+	return false;
+}
+#pragma endregion 
+
 #pragma region TakeDamage
 bool APRBaseCharacter::IsDead() const
 {
 	return GetStateSystem()->IsDead();
+}
+
+bool APRBaseCharacter::IsInvincible() const
+{
+	return GetStateSystem()->IsInvincible();
 }
 
 void APRBaseCharacter::TakeHit(AActor* DamageCauser)
@@ -233,6 +310,102 @@ void APRBaseCharacter::Jump()
 	}
 }
 #pragma endregion
+
+#pragma region DamageSystem
+void APRBaseCharacter::Death()
+{
+	// GetMesh()->SetSimulatePhysics(true);
+	// GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	
+	GetStateSystem()->SetIsDead(true);
+	SetActorEnableCollision(false);
+}
+
+void APRBaseCharacter::Blocked(bool bCanBeParried)
+{
+	PR_LOG_SCREEN("Blocked");
+}
+
+void APRBaseCharacter::DamageResponse(EPRDamageResponse DamageResponse)
+{
+	PR_LOG_SCREEN("DamageResponse: %s", *PRCommonEnum::GetEnumDisplayNameToString(TEXT("EPRDamageResponse"), static_cast<uint8>(DamageResponse)));
+}
+
+void APRBaseCharacter::DoDamage()
+{
+	if(IsDead())
+	{
+		return;
+	}
+	
+	TArray<FHitResult> HitResults;
+	bool bIsHit = false;
+	const FVector TraceStart = GetActorLocation();
+	const FVector TraceEnd = TraceStart + GetActorForwardVector() * 100.0f;
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	
+	// ObjectTypeQuery3 = ObjectType Pawn
+	ObjectTypes.Emplace(EObjectTypeQuery::ObjectTypeQuery3);
+			
+	// 자신을 Trace 대상에서 제외합니다.
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Emplace(this);
+
+	// Debug 실행을 설정합니다.
+	EDrawDebugTrace::Type DebugType = EDrawDebugTrace::None;
+	if(bDamageSystemDebug)
+	{
+		DebugType = EDrawDebugTrace::ForDuration;
+	}
+
+	TSet<AActor*> UniqueActors;
+
+	bIsHit = UKismetSystemLibrary::SphereTraceMultiForObjects(GetWorld(), TraceStart, TraceEnd, 20.0f, ObjectTypes, false, ActorsToIgnore, DebugType, HitResults, true);
+	if(bIsHit)
+	{
+		for(FHitResult HitResult : HitResults)
+		{
+			if(HitResult.Actor.IsValid()
+				&& HitResult.Actor->GetClass()->ImplementsInterface(UInterface_PRDamageable::StaticClass())
+				&& UniqueActors.Find(HitResult.GetActor()) == nullptr)
+			{
+				PR_LOG_SCREEN("Hit Actor Name: %s", *HitResult.GetActor()->GetName());
+				
+				UniqueActors.Emplace(HitResult.GetActor());
+				FPRDamageInfo DamageInfo;
+				DamageInfo.Amount = 10.0f;
+				DamageInfo.DamageType = EPRDamageType::DamageType_Melee;
+				DamageInfo.DamageResponse = EPRDamageResponse::DamageResponse_HitReaction;
+				
+				bool bWasDamaged = IInterface_PRDamageable::Execute_TakeDamage(HitResult.Actor.Get(), DamageInfo);
+				if(bWasDamaged)
+				{
+					GetEffectSystem()->SpawnNiagaraEffectAtLocation(HitEffect,HitResult.Location);
+				}
+			}
+		}
+	}
+	
+	// Hit된 액터들에게 대미지를 줍니다.
+	// if(bIsHit)
+	// {
+	// 	for(FHitResult Hit : HitResults)
+	// 	{
+	// 		if(Hit.Actor.IsValid() == true && IsHitActor(NewHitActors, *Hit.GetActor()) == false)
+	// 		{
+	// 			AActor* HitActor = Hit.GetActor();
+	// 			NewHitActors.Emplace(HitActor, false);
+	//
+	// 			if(IsTakeDamageActor(NewHitActors, *HitActor) == false)
+	// 			{
+	// 				ApplyDamage(NewHitActors, HitActor);
+	// 				SpawnHitEffectByWeaponPosition(NewWeaponPosition, Hit.ImpactPoint);
+	// 			}
+	// 		}
+	// 	}
+	// }
+}
+#pragma endregion 
 
 #pragma region AnimSystem
 void APRBaseCharacter::InitializePRAnimMontages()

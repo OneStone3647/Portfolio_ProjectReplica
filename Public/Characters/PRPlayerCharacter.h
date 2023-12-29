@@ -20,7 +20,6 @@ class APRBaseSkill;
 class UPRTestEffectSystemComponent;
 class USphereComponent;
 class APRPooledObject;
-class USceneCaptureComponent2D;
 
 enum class EPRCommandSkill : uint8;
 
@@ -198,10 +197,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCineCameraComponent* SkillCamera;
 
-	/** 화면을 캡쳐하는 컴포넌트입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	USceneCaptureComponent2D* SceneCapture;	
-
 	/** 카메라의 초기화한 위치를 나타내는 ArrowComponent입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UArrowComponent* ResetCameraPositionArrow;
@@ -268,9 +263,6 @@ public:
 	
 	/** SkillCamera를 반환하는 함수입니다. */
 	UCineCameraComponent* GetSkillCamera() const { return SkillCamera; }
-
-	/** SceneCapture를 반환하는 함수입니다. */
-	USceneCaptureComponent2D* GetSceneCapture() const { return SceneCapture; }
 #pragma endregion
 
 #pragma region MovementInput
@@ -402,6 +394,11 @@ protected:
 	FTimerHandle SprintTimerHandle;
 #pragma endregion
 
+#pragma region DamageSystem
+public:
+	virtual void Death() override;
+#pragma endregion 
+
 #pragma region TargetingSystem
 protected:
 	/** Target을 LockOn하는 함수입니다. */
@@ -444,18 +441,6 @@ public:
 	/** TimeStop을 실행 중인지 나타내는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
 	bool IsActivateTimeStop() const;
-// 	
-// private:
-// 	/** 플레이어 캐릭터를 제외한 일정범위 안에 존재하는 Actor들을 일시정지하는 TimeStop을 실행하는 ActorComponent 클래스입니다. */
-// 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeStopSystem", meta = (AllowPrivateAccess = "true"))
-// 	UPRTimeStopSystemComponent* TimeStopSystem;
-//
-// public:
-// 	/** TimeStopSystem을 반환하는 함수입니다. */
-// 	FORCEINLINE class UPRTimeStopSystemComponent* GetTimeStopSystem() const
-// 	{
-// 		return TimeStopSystem;
-// 	}
 #pragma endregion
 
 #pragma region Interact

@@ -21,6 +21,7 @@ public:
 	UPRStatSystemComponent();
 
 protected:
+	virtual void OnRegister() override;
 	virtual void InitializeComponent() override;
 
 public:
@@ -52,6 +53,9 @@ private:
 public:
 	/** CharacterStat을 반환하는 함수입니다. */
 	FPRCharacterStat GetCharacterStat() const;
+
+	/** 입력받은 인자로 CharacterStat을 설정하는 함수입니다. */
+	void SetCharacterStat(const FPRCharacterStat& NewCharacterStat);
 	
 	/** Gender를 반환하는 함수입니다. */
 	EPRGender GetGender() const;

@@ -13,6 +13,8 @@ class UWidgetComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAIDeactivate, APRAICharacter*, AICharacter);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDynamicAIDeactivate, APRAICharacter*, AICharacter);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackEnd);
+
 
 /**
  * AI 캐릭터 클래스입니다.
@@ -26,6 +28,7 @@ public:
 	APRAICharacter();
 
 protected:
+	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 
@@ -52,19 +55,17 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Activate")
 	bool bActivate;
 	
-	/** AI 캐릭터가 사망한 후 비활성화가 되는 시간입니다. */
+	/** AI 캐릭터의 수명입니다. 수명이 다할 경우 AI 캐릭터는 비활성화됩니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Activate", meta = (ClampMin = "0"))
-	float DeactivateDelay;
-	
-public:
-	/** 입력받은 인자로 DeactivateDelay를 설정하는 함수입니다. */
-	void SetDeactivateDelay(float NewDeactivateDelay);
+	float Lifespan;
 
 public:
 	/** AI가 비활성화될 때 실행하는 델리게이트입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintAssignable, BlueprintCallable, Category = "Activate")
 	FOnAIDeactivate OnAIDeactivate;
 
 	/** 동적으로 생성한 AI가 비활성화될 때 OnAIDeactivate와 함께 실행하는 델리게이트입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintAssignable, BlueprintCallable, Category = "Activate")
 	FOnDynamicAIDeactivate OnDynamicAIDeactivate;
 #pragma endregion
 
@@ -153,17 +154,32 @@ public:
 	void SetSpawner(APRAISpawner* NewSpawner);
 #pragma endregion
 
-#pragma region AIListIndex
+#pragma region PoolIndex
 protected:
-	/** GameMode의 AISpawnSystem의 AIPool에서 AI 캐릭터 클래스에 해당하는 AIList의 Index입니다. */
+	/** AIPool의 Index입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AIListIndex")
-	int32 AIListIndex;
+	int32 PoolIndex;
 
 public:
-	/** AIListIndex를 반환하는 함수입니다. */
-	int32 GetAIListIndex() const;
+	/** PoolIndex를 반환하는 함수입니다. */
+	int32 GetPoolIndex() const;
 
-	/** 입력받은 인자로 AIListIndex를 설정하는 함수입니다. */
-	void SetAIListIndex(int32 NewAIListIndex);
+	/** 입력받은 인자로 PoolIndex를 설정하는 함수입니다. */
+	void SetPoolIndex(int32 NewPoolIndex);
 #pragma endregion
+
+#pragma region AI
+public:
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void DefaultAttack();
+
+private:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* AttackAnimMontage;
+	
+public:
+	/** 공격을 끝냈을 때 실행하는 델리게이트입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintAssignable, BlueprintCallable, Category = "AI")
+	FOnAttackEnd OnAttackEnd;
+#pragma endregion 
 };

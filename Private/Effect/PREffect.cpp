@@ -8,19 +8,21 @@
 UPREffect::UPREffect()
 {
 	bActivate = false;
-	EffectSourceAsset = nullptr;
+	// EffectSourceAsset = nullptr;
 	EffectOwner = nullptr;
 	PoolIndex = -1;
-	Lifespan = 0.0f;
+	Lifespan = 60.0f;
+	bTimeStopActive = false;
 }
 
 void UPREffect::Initialize()
 {
 	bActivate = false;
-	EffectSourceAsset = nullptr;
+	// EffectSourceAsset = nullptr;
 	EffectOwner = nullptr;
 	PoolIndex = -1;
-	Lifespan = 0.0f;
+	Lifespan = 60.0f;
+	bTimeStopActive = false;
 }
 
 void UPREffect::UpdateEffect(float DeltaTime)
@@ -49,7 +51,7 @@ void UPREffect::Deactivate()
 	{
 		GetEffectOwner()->GetWorldTimerManager().ClearAllTimersForObject(this);
 	}
-	OnEffectDeactivate.Broadcast(this);
+	// OnEffectDeactivate.Broadcast(this);
 }
 
 void UPREffect::Destroy()
@@ -81,15 +83,30 @@ bool UPREffect::IsLooping() const
 	return false;
 }
 
-UFXSystemAsset* UPREffect::GetEffectSourceAsset() const
+bool UPREffect::IsTimeStopActive() const
 {
-	return EffectSourceAsset;
+	return bTimeStopActive;
 }
 
-void UPREffect::SetEffectSourceAsset(UFXSystemAsset* NewEffectSourceAsset)
+void UPREffect::TimeStopActive()
 {
-	EffectSourceAsset = NewEffectSourceAsset;
+	bTimeStopActive = true;
 }
+
+void UPREffect::TimeStopDeactive()
+{
+	bTimeStopActive = false;
+}
+
+// UFXSystemAsset* UPREffect::GetEffectSourceAsset() const
+// {
+// 	return EffectSourceAsset;
+// }
+//
+// void UPREffect::SetEffectSourceAsset(UFXSystemAsset* NewEffectSourceAsset)
+// {
+// 	EffectSourceAsset = NewEffectSourceAsset;
+// }
 
 AActor* UPREffect::GetEffectOwner() const
 {

@@ -15,19 +15,19 @@ void UPRNiagaraEffect::Initialize()
 {
 	Super::Initialize();
 
-	OnEffectDeactivate.Clear();
+	OnNiagaraEffectDeactivate.Clear();
 	Deactivate();
 }
 
-void UPRNiagaraEffect::UpdateEffect(float DeltaTime)
-{
-	Super::UpdateEffect(DeltaTime);
-
-	if(DeltaTime != 0.0f && NiagaraEffect != nullptr && IsValid(GetEffectOwner()) == true)
-	{
-		NiagaraEffect->AdvanceSimulation(1, DeltaTime);
-	}
-}
+// void UPRNiagaraEffect::UpdateEffect(float DeltaTime)
+// {
+// 	Super::UpdateEffect(DeltaTime);
+//
+// 	if(NiagaraEffect != nullptr && IsValid(GetEffectOwner()))
+// 	{
+// 		NiagaraEffect->AdvanceSimulation(1, DeltaTime);
+// 	}
+// }
 
 bool UPRNiagaraEffect::IsActivate() const
 {
@@ -59,6 +59,11 @@ void UPRNiagaraEffect::Deactivate()
 		NiagaraEffect->SetHiddenInGame(true);
 		NiagaraEffect->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		NiagaraEffect->Deactivate();
+	}
+
+	if(OnNiagaraEffectDeactivate.IsBound())
+	{
+		OnNiagaraEffectDeactivate.Broadcast(this);
 	}
 }
 
@@ -134,6 +139,34 @@ bool UPRNiagaraEffect::IsLooping() const
 	}
 
 	return false;
+}
+
+void UPRNiagaraEffect::TimeStopActive()
+{
+	Super::TimeStopActive();
+}
+
+void UPRNiagaraEffect::TimeStopDeactive()
+{
+	Super::TimeStopDeactive();
+}
+
+void UPRNiagaraEffect::UpdateTimeDilation(float TimeDilation)
+{
+	if(NiagaraEffect != nullptr && IsValid(GetEffectOwner()))
+	{
+		NiagaraEffect->AdvanceSimulation(1, TimeDilation);
+	}
+}
+
+UNiagaraSystem* UPRNiagaraEffect::GetNiagaraEffectAsset() const
+{
+	if(NiagaraEffect != nullptr)
+	{
+		return NiagaraEffect->GetAsset();
+	}
+
+	return nullptr;
 }
 
 UNiagaraComponent* UPRNiagaraEffect::GetNiagaraEffect() const

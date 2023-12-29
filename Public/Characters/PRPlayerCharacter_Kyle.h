@@ -7,6 +7,9 @@
 #include "NiagaraSystem.h"
 #include "PRPlayerCharacter_Kyle.generated.h"
 
+class USceneCaptureComponent2D;
+class APRScreenShatter;
+
 /**
  * 캐릭터의 공격 모드를 나타내는 열거형입니다.
  * General: 일반 모드
@@ -35,6 +38,30 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+
+#pragma region Camera
+public:
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Camera|ScreenShatter")
+	void ActivateScreenShatter();
+	virtual void ActivateScreenShatter_Implementation();
+	
+private:
+	/** 화면을 캡쳐하는 컴포넌트입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera|ScreenShatter", meta = (AllowPrivateAccess = "true"))
+	USceneCaptureComponent2D* SceneCapture;
+
+	/** 캡쳐한 화면의 깨짐을 표현하는 ScreenShatter 클래스입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera|ScreenShatter", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<APRScreenShatter> ScreenShatter;
+
+	/** 캡쳐한 화면을 나타내는 위젯 클래스입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera|ScreenShatter", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UUserWidget> ScreenShatterWidget;
+
+public:
+	/** SceneCapture를 반환하는 함수입니다. */
+	USceneCaptureComponent2D* GetSceneCapture() const { return SceneCapture; }
+#pragma endregion 
 
 #pragma region MovementInput
 protected:
@@ -183,5 +210,4 @@ protected:
 	virtual void ActivateBattleSkill(EPRCommandSkill NewPRCommandSkill) override;
 #pragma endregion
 
-	
 };

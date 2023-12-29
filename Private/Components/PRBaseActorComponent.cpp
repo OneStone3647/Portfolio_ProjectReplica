@@ -13,10 +13,10 @@ UPRBaseActorComponent::UPRBaseActorComponent()
 	PROwner = nullptr;
 }
 
-void UPRBaseActorComponent::BeginPlay()
+void UPRBaseActorComponent::OnRegister()
 {
-	Super::BeginPlay();
-
+	Super::OnRegister();
+	
 	InitializePROwner();
 }
 

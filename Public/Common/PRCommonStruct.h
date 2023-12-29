@@ -19,6 +19,34 @@
 
 class APRAICharacter;
 
+/**
+ * 활성화된 Index를 보관한 목록을 나타내는 구조체입니다.
+ */
+USTRUCT(Atomic, BlueprintType)
+struct FPRActivateIndexList
+{
+	GENERATED_BODY()
+
+public:
+	/** 활성화된 오브젝트의 Index를 보관한 목록입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRActivateIndexList")
+	TArray<int32> Indexes;
+};
+
+/**
+ * 이전에 사용된 Index를 보관한 목록을 나타내는 구조체입니다.
+ */
+USTRUCT(Atomic, BlueprintType)
+struct FPRUsedIndexList
+{
+	GENERATED_BODY()
+
+public:
+	/** 이전에 사용된 Index를 추적하기 위한 Set입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRUsedIndexList")
+	TSet<int32> Indexes;
+};
+
 #pragma region PRAnimMontage
 /**
  * 재생할 AnimMontage와 재생 옵션을 관리하는 변수를 가진 구조체입니다.
@@ -560,5 +588,71 @@ public:
 				|| this->CriticalRate != NewPRCharacterStat.CriticalRate
 				|| this->CriticalDamage != NewPRCharacterStat.CriticalDamage;
 	}
+};
+
+/**
+ * 대미지 정보를 나타내는 구조체입니다.
+ */
+USTRUCT(Atomic, BlueprintType)
+struct FPRDamageInfo
+{
+	GENERATED_BODY()
+
+public:
+	FPRDamageInfo()
+		: Amount(0.0f)
+		, DamageType(EPRDamageType::DamageType_None)
+		, DamageResponse(EPRDamageResponse::DamageResponse_None)
+		, bShouldDamageInvincible(false)
+		, bCanBeBlocked(false)
+		, bCanBeParried(false)
+		, bShouldForceInterrupt(false)
+	{}
+
+	FPRDamageInfo(float NewAmount, EPRDamageType NewDamageType, EPRDamageResponse NewEPRDamageResponse, bool bNewShouldDamageInvincible,
+					bool bNewCanBeBlocked, bool bNewCanBeParried, bool bNewShouldForceInterrupt)
+		: Amount(0.0f)
+		, DamageType(EPRDamageType::DamageType_None)
+		, DamageResponse(EPRDamageResponse::DamageResponse_None)
+		, bShouldDamageInvincible(false)
+		, bCanBeBlocked(false)
+		, bCanBeParried(false)
+		, bShouldForceInterrupt(false)
+	{}
+	
+public:
+	/** 대미지 양입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	float Amount;
+
+	/** 대미지 타입입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	EPRDamageType DamageType;
+	
+	/** 대미지 반응입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	EPRDamageResponse DamageResponse;
+
+	/**
+	 * 무적상태에도 대미지를 입히는지 나타내는 변수입니다.
+	 * true일 경우 무적상태일 때도 대미지를 입힙니다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	bool bShouldDamageInvincible;
+
+	/** 방어 가능 여부를 나타내는 변수입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	bool bCanBeBlocked;
+
+	/** 패링 가능 여부를 나타내는 변수입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	bool bCanBeParried;
+
+	/**
+	 * 동작 강제 중단 여부를 나타내는 변수입니다.
+	 * ture일 경우 상대의 동작을 강제로 중단합니다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	bool bShouldForceInterrupt;
 };
 

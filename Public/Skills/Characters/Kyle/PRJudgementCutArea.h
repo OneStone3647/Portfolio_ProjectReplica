@@ -23,7 +23,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	
-protected:
+public:
 	// virtual void UpdatePooledObject_Implementation(float DeltaTime) override;
 	virtual void InitializeSpawnLocation_Implementation() override;
 	virtual void Activate_Implementation() override;

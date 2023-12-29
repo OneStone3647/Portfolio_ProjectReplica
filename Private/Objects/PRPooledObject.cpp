@@ -9,9 +9,9 @@ APRPooledObject::APRPooledObject()
 
 	bActivate = false;
 	ObjectOwner = nullptr;
-	ObjectName = FName();
-	Lifespan = 0.0f;
-	PoolIndex = 0;
+	// ObjectName = FName();
+	Lifespan = 60.0f;
+	PoolIndex = -1;
 }
 
 void APRPooledObject::BeginPlay()
@@ -20,9 +20,9 @@ void APRPooledObject::BeginPlay()
 	
 }
 
-void APRPooledObject::UpdatePooledObject_Implementation(float DeltaTime)
-{
-}
+// void APRPooledObject::UpdatePooledObject_Implementation(float DeltaTime)
+// {
+// }
 
 bool APRPooledObject::IsActivate() const
 {
@@ -32,7 +32,7 @@ bool APRPooledObject::IsActivate() const
 void APRPooledObject::Activate_Implementation()
 {
 	bActivate = true;
-	InitializeSpawnLocation();
+	// InitializeSpawnLocation();
 	SetActorHiddenInGame(!bActivate);
 	
 	// 오브젝트의 수명이 끝나면 오브젝트를 비활성화합니다.
@@ -55,11 +55,6 @@ void APRPooledObject::InitializeSpawnLocation_Implementation()
 {
 }
 
-void APRPooledObject::SetLifespan(float NewLifespan)
-{
-	Lifespan = NewLifespan;
-}
-
 AActor* APRPooledObject::GetObjectOwner() const
 {
 	return ObjectOwner;
@@ -70,15 +65,15 @@ void APRPooledObject::SetObjectOwner(AActor* NewObjectOwner)
 	ObjectOwner = NewObjectOwner;
 }
 
-FName APRPooledObject::GetObjectName() const
-{
-	return ObjectName;
-}
-
-void APRPooledObject::SetObjectName(FName NewObjectName)
-{
-	ObjectName = NewObjectName;
-}
+// FName APRPooledObject::GetObjectName() const
+// {
+// 	return ObjectName;
+// }
+//
+// void APRPooledObject::SetObjectName(FName NewObjectName)
+// {
+// 	ObjectName = NewObjectName;
+// }
 
 int32 APRPooledObject::GetPoolIndex() const
 {
@@ -88,5 +83,10 @@ int32 APRPooledObject::GetPoolIndex() const
 void APRPooledObject::SetPoolIndex(int32 NewPoolIndex)
 {
 	PoolIndex = NewPoolIndex;
+}
+
+void APRPooledObject::SetLifespan(float NewLifespan)
+{
+	Lifespan = NewLifespan;
 }
 

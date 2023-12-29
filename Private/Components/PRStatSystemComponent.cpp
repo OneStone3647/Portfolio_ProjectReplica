@@ -9,6 +9,11 @@ UPRStatSystemComponent::UPRStatSystemComponent()
 	Gender = EPRGender::Gender_None;
 }
 
+void UPRStatSystemComponent::OnRegister()
+{
+	Super::OnRegister();
+}
+
 void UPRStatSystemComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
@@ -61,6 +66,11 @@ void UPRStatSystemComponent::SetHealthPoint(float NewHealthPoint)
 FPRCharacterStat UPRStatSystemComponent::GetCharacterStat() const
 {
 	return CharacterStat;
+}
+
+void UPRStatSystemComponent::SetCharacterStat(const FPRCharacterStat& NewCharacterStat)
+{
+	CharacterStat = NewCharacterStat;
 }
 
 EPRGender UPRStatSystemComponent::GetGender() const

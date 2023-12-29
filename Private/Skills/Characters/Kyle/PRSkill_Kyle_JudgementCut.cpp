@@ -13,7 +13,7 @@
 
 UPRSkill_Kyle_JudgementCut::UPRSkill_Kyle_JudgementCut()
 {
-	JudgementCutArea = FPRPooledObjectInfo();
+	// JudgementCutArea = FPRPooledObjectInfo();
 	
 	// PRAnimMontage
 	JudgementCutPRAnimMontage = FPRAnimMontage();
@@ -29,11 +29,11 @@ void UPRSkill_Kyle_JudgementCut::InitializeSkill_Implementation()
 	if(IsValid(GetSkillOwner()) == true)
 	{
 		// ObjectPool 생성
-		if(JudgementCutArea.PooledObjectClass != nullptr
-			&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(JudgementCutArea.PooledObjectClass) == false)
-		{
-			GetSkillOwner()->GetObjectPoolSystem()->CreateObjectPool(JudgementCutArea);
-		}
+		// if(JudgementCutArea.PooledObjectClass != nullptr
+		// 	&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(JudgementCutArea.PooledObjectClass) == false)
+		// {
+		// 	GetSkillOwner()->GetObjectPoolSystem()->CreateObjectPool(JudgementCutArea);
+		// }
 
 		// 데이터 테이블에서 스킬이 사용하는 PRAnimMontage를 가져옵니다.
 		// JudgementCutPRAnimMontage를 데이터 테이블에서 받아옵니다.

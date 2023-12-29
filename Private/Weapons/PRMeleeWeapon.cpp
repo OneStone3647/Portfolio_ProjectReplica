@@ -357,15 +357,31 @@ void APRMeleeWeapon::ApplyDamage(TMap<AActor*, bool>& NewHitActors, AActor* NewH
 	FDamageEvent DamageEvent;
 	const float TotalDamage = WeaponAttackPoint + GetPROwner()->GetStatSystem()->GetCharacterStat().AttackPoint;
 
-	UGameplayStatics::ApplyDamage(NewHitActor, TotalDamage, GetPROwner()->GetController(), GetPROwner(), nullptr);
+	// UGameplayStatics::ApplyDamage(NewHitActor, TotalDamage, GetPROwner()->GetController(), GetPROwner(), nullptr);
 	// NewHitActor->TakeDamage(TotalDamage, DamageEvent, GetPROwner()->GetController(), GetPROwner());
+
+	if(NewHitActor->GetClass()->ImplementsInterface(UInterface_PRDamageable::StaticClass()))
+	{
+		FPRDamageInfo DamageInfo;
+		DamageInfo.Amount = TotalDamage;
+		DamageInfo.DamageType = EPRDamageType::DamageType_Melee;
+		DamageInfo.DamageResponse = EPRDamageResponse::DamageResponse_HitReaction;
+
+		bool bWasDamaged = IInterface_PRDamageable::Execute_TakeDamage(NewHitActor, DamageInfo);
+		if(bWasDamaged && bActivateTraceDebug)
+		{
+			UKismetSystemLibrary::PrintString(GetWorld(), "Hit Actor: " + NewHitActor->GetName() + ", GetDamage: " + FString::SanitizeFloat(TotalDamage),
+									true, false, FLinearColor::Red, 5.0f);
+		}
+	}
+	
 	NewHitActors.Emplace(NewHitActor, true);
 
-	if(bActivateTraceDebug)
-	{
-		UKismetSystemLibrary::PrintString(GetWorld(), "Hit Actor: " + NewHitActor->GetName() + ", GetDamage: " + FString::SanitizeFloat(TotalDamage),
-								true, false, FLinearColor::Red, 5.0f);
-	}
+	// if(bActivateTraceDebug)
+	// {
+	// 	UKismetSystemLibrary::PrintString(GetWorld(), "Hit Actor: " + NewHitActor->GetName() + ", GetDamage: " + FString::SanitizeFloat(TotalDamage),
+	// 							true, false, FLinearColor::Red, 5.0f);
+	// }
 }
 
 TMap<AActor*, bool>& APRMeleeWeapon::GetMainWeaponHitActors()

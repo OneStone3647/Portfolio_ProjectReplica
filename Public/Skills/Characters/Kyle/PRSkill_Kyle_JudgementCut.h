@@ -34,8 +34,8 @@ public:
 
 private:
 	/** 일정 범위에 대미지를 가하는 오브젝트의 정보입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectInfo", meta = (AllowPrivateAccess = "true"))
-	FPRPooledObjectInfo JudgementCutArea;
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectInfo", meta = (AllowPrivateAccess = "true"))
+	// FPRPooledObjectInfo JudgementCutArea;
 
 #pragma region Cooldown
 public:

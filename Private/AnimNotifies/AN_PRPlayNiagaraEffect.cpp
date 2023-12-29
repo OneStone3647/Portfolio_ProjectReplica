@@ -29,7 +29,7 @@ UFXSystemComponent* UAN_PRPlayNiagaraEffect::SpawnEffect(USkeletalMeshComponent*
 			if(EffectSystem != nullptr)
 			{
 				// EffectPool에 Spawn할 Effect가 존재하는지 탐색합니다.
-				if(EffectSystem->IsValidEffectPool(Template) == true)
+				if(EffectSystem->IsCreateNiagaraEffectPool(Template) == true)
 				{
 					UPRNiagaraEffect* SpawnPRNiagaraEffect = nullptr;
 

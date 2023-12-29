@@ -7,6 +7,7 @@
 #include "PRPooledObject.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPooledObjectDeactivate, APRPooledObject*, PoolObject);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDynamicPooledObjectDeactivate, APRPooledObject*, PooledObject);
 
 /**
  * 오브젝트 풀링에 사용하는 오브젝트 클래스입니다.
@@ -23,10 +24,10 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	/** 오브젝트를 최신화하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")
-	void UpdatePooledObject(float DeltaTime);
-	virtual void UpdatePooledObject_Implementation(float DeltaTime);
+	// /** 오브젝트를 최신화하는 함수입니다. */
+	// UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Pooled Object")
+	// void UpdatePooledObject(float DeltaTime);
+	// virtual void UpdatePooledObject_Implementation(float DeltaTime);
 	
 	/** 오브젝트가 활성화 되었는지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "Pooled Object")
@@ -47,7 +48,6 @@ public:
 	void InitializePooledObject();
 	virtual void InitializePooledObject_Implementation();	
 
-protected:
 	// /** 오브젝트를 비활성화하는 함수입니다. */
 	// UFUNCTION(BlueprintCallable, Category = "Pooled Object")
 	// virtual void Deactivate();
@@ -63,15 +63,15 @@ protected:
 	bool bActivate;
 	
 	/** 오브젝트의 소유자입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Pooled Object")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Pooled Object")
 	AActor* ObjectOwner;
 
-	/** 오브젝트의 이름입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pooled Object")
-	FName ObjectName;	
+	// /** 오브젝트의 이름입니다. */
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pooled Object")
+	// FName ObjectName;	
 
 	/** 오브젝트의 수명입니다. 수명이 다할 경우 오브젝트는 비활성화됩니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Pooled Object")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pooled Object")
 	float Lifespan;
 
 	/** 오브젝트의 수명에 따라 오브젝트를 비활성화할 때 사용하는 TimerHandle입니다. */
@@ -88,11 +88,11 @@ public:
 	/** 입력받은 인자로 ObjectOwner를 설정하는 함수입니다. */
 	void SetObjectOwner(AActor* NewObjectOwner);
 	
-	/** ObjectName을 반환하는 함수입니다. */
-	FName GetObjectName() const;
-
-	/** 입력받은 인자로 ObjectName을 설정하는 함수입니다. */
-	void SetObjectName(FName NewObjectName);
+	// /** ObjectName을 반환하는 함수입니다. */
+	// FName GetObjectName() const;
+	//
+	// /** 입력받은 인자로 ObjectName을 설정하는 함수입니다. */
+	// void SetObjectName(FName NewObjectName);
 	
 	/** PoolIndex를 반환하는 함수입니다. */
 	int32 GetPoolIndex() const;
@@ -106,4 +106,7 @@ public:
 public:
 	/** 오브젝트를 비활성화하는 델리게이트입니다. */
 	FOnPooledObjectDeactivate OnPooledObjectDeactivate;
+
+	/** 동적으로 생성한 오브젝트를 비활성화할 때 OnPooledObjectDeactivate와 함께 실행하는 델리게이트입니다. */
+	FOnDynamicPooledObjectDeactivate OnDynamicPooledObjectDeactivate;
 };

@@ -20,7 +20,8 @@ public:
 	UPRBaseActorComponent();
 
 protected:
-	virtual void BeginPlay() override;
+	/** 액터 컴포넌트가 액터에 등록될 때 호출하는 함수입니다. */
+	virtual void OnRegister() override;
 	
 protected:
 	/** PROwner를 초기화하는 함수입니다. */

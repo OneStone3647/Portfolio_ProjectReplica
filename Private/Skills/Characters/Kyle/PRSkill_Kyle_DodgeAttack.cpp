@@ -15,7 +15,8 @@ UPRSkill_Kyle_DodgeAttack::UPRSkill_Kyle_DodgeAttack()
 	bTickable = true;
 
 	// ObjectInfo
-	DodgeAttackProjectile = FPRPooledObjectInfo();
+	// DodgeAttackProjectile = FPRObjectPoolSettings();
+	DodgeAttackProjectile = nullptr;
 	
 	// DodgeAttack
 	SkillDurationTime = 2.5f;
@@ -34,11 +35,11 @@ void UPRSkill_Kyle_DodgeAttack::InitializeSkill_Implementation()
 	if(IsValid(GetSkillOwner()) == true)
 	{
 		// ObjectPool 생성
-		if(DodgeAttackProjectile.PooledObjectClass != nullptr
-			&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(DodgeAttackProjectile.PooledObjectClass) == false)
-		{
-			GetSkillOwner()->GetObjectPoolSystem()->CreateObjectPool(DodgeAttackProjectile);
-		}
+		// if(DodgeAttackProjectile.PooledObjectClass != nullptr
+		// 	&& GetSkillOwner()->GetObjectPoolSystem()->IsCreateObjectPool(DodgeAttackProjectile.PooledObjectClass) == false)
+		// {
+		// 	GetSkillOwner()->GetObjectPoolSystem()->ActivatePooledObject(DodgeAttackProjectile.PooledObjectClass);
+		// }
 		
 		// ComboAnimMontage를 데이터 테이블에서 받아옵니다.
 		if(PRComboAnimMontage == FPRComboAnimMontage())

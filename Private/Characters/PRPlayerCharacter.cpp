@@ -30,7 +30,7 @@
 #include "Weapons/PRBaseWeapon.h"
 #include "Components/SphereComponent.h"
 #include "CinematicCamera/Public/CineCameraComponent.h"
-#include "Components/SceneCaptureComponent2D.h"
+#include "Interfaces/Interface_PRInteract.h"
 
 APRPlayerCharacter::APRPlayerCharacter()
 {
@@ -66,13 +66,6 @@ APRPlayerCharacter::APRPlayerCharacter()
 	SkillCamera = CreateDefaultSubobject<UCineCameraComponent>(TEXT("SkillCamera"));
 	SkillCamera->SetupAttachment(RootComponent);
 	SkillCamera->SetConstraintAspectRatio(false);
-
-	// SceneCapture
-	SceneCapture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("SceneCapture"));
-	SceneCapture->SetupAttachment(FollowCamera);
-	SceneCapture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
-	SceneCapture->bCaptureEveryFrame = false;
-	SceneCapture->bCaptureOnMovement = false;
 
 	// ResetCameraPosition
 	ResetCameraPositionArrow = CreateDefaultSubobject<UArrowComponent>(TEXT("ResetCameraPositionArrow"));
@@ -163,9 +156,6 @@ void APRPlayerCharacter::BeginPlay()
 	// 컨트롤러에서 뷰포트에 위젯을 추가하는 것이 캐릭터의 BeginPlay보다 먼저 실행되므로
 	// 캐릭터가 시작되면서 HUD에 필요한 정보를 초기화합니다.
 	InitializeInGameHUD();
-
-	// WeaponSystem
-	GetWeaponSystem()->InitializeWeaponInventory();
 
 	// StateSystem
 	if(GetWeaponSystem()->GetWeaponInventory().Num() != 0)
@@ -910,8 +900,8 @@ bool APRPlayerCharacter::IsActivateTimeStop() const
 #pragma region Interact
 void APRPlayerCharacter::AddToInteractableObjects(AActor* NewInteractableObject)
 {
-	// PRInteractInteractInterface를 상속하고 있는지 확인합니다.
-	if(NewInteractableObject->GetClass()->ImplementsInterface(UPRInteractInterface::StaticClass()) == true)
+	// Interface_PRInteract를 상속하고 있는지 확인합니다.
+	if(NewInteractableObject->GetClass()->ImplementsInterface(UInterface_PRInteract::StaticClass()) == true)
 	{
 		InteractableObjects.AddUnique(NewInteractableObject);
 
@@ -1002,10 +992,23 @@ void APRPlayerCharacter::ExecuteInteract()
 {
 	if(InteractableObjects.IsValidIndex(SelectInteractIndex) == true && IsValid(InteractableObjects[SelectInteractIndex]) == true)
 	{
-		if(InteractableObjects[SelectInteractIndex]->GetClass()->ImplementsInterface(UPRInteractInterface::StaticClass()) == true)
+		if(InteractableObjects[SelectInteractIndex]->GetClass()->ImplementsInterface(UInterface_PRInteract::StaticClass()) == true)
 		{
-			IPRInteractInterface::Execute_OnInteract(InteractableObjects[SelectInteractIndex]);
+			IInterface_PRInteract::Execute_OnInteract(InteractableObjects[SelectInteractIndex]);
 		}
+	}
+}
+#pragma endregion
+
+#pragma region DamageSystem
+void APRPlayerCharacter::Death()
+{
+	Super::Death();
+
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if(PlayerController != nullptr)
+	{
+		DisableInput(PlayerController);
 	}
 }
 #pragma endregion

@@ -37,63 +37,17 @@ public:
 };
 
 /**
- * AI 캐릭터를 보관한 목록을 나타내는 구조체입니다.
+ * AI 캐릭터를 보관한 풀을 나타내는 구조체입니다.
  */
 USTRUCT(Atomic, BlueprintType)
-struct FPRAIList
+struct FPRAIPool
 {
 	GENERATED_BODY()
 
 public:
-	/** AI의 목록입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRAIList")
-	TArray<APRAICharacter*> List;
-};
-
-/**
- * 활성화된 AI 캐릭터의 Index를 보관한 목록을 나타내는 구조체입니다.
- */
-USTRUCT(Atomic, BlueprintType)
-struct FPRActivateAIList
-{
-	GENERATED_BODY()
-
-public:
-	/** 활성화된 AI 캐릭터의 Index를 보관한 목록입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRActivateAIList")
-	TArray<int32> Indexes;
-};
-
-/**
- * 이전에 사용된 AI 캐릭터의 Index를 보관한 목록을 나타내는 구조체입니다.
- */
-USTRUCT(Atomic, BlueprintType)
-struct FPRUsedAIList
-{
-	GENERATED_BODY()
-
-public:
-	/** 이전에 사용된 Index를 추적하기 위한 Set입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRActivateAIList")
-	TSet<int32> Indexes;
-};
-
-/**
- * 동적으로 생성한 AI 캐릭터와 TimerHandle을 보관하는 구조체입니다.
- */
-USTRUCT(Atomic, BlueprintType)
-struct FPRDynamicAIDestroyInfo
-{
-	GENERATED_BODY()
-
-public:
-	/** 동적으로 생성한 AI 캐릭터입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRDynamicAIDestroyInfo")
-	APRAICharacter* DynamicAICharacter;
-
-	/** AI 캐릭터를 제거하는 TimerHandle입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "PRDynamicAIDestroyInfo")
-	FTimerHandle DestroyTimerHandle;
+	/** AI 캐릭터를 넣은 풀입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRAIPool")
+	TArray<APRAICharacter*> AIs;
 };
 
 /**
@@ -140,6 +94,20 @@ public:
 };
 
 /**
+ * 동적으로 생성한 AI와 AI를 제거할 때 사용하는 TimerHandle을 보관한 목록을 나타내는 구조체입니다.
+ */
+USTRUCT(Atomic, BlueprintType)
+struct FPRDynamicDestroyAIList
+{
+	GENERATED_BODY()
+	
+public:
+	/** 동적으로 생성한 AI와 AI를 제거할 때 사용하는 TimerHandle입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DynamicDestroyAI")
+	TMap<APRAICharacter*, FTimerHandle> AIs;
+};
+
+/**
  * AI 캐릭터를 월드에 Spawn하고 관리하는 ActorComponent 클래스입니다.
  */
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -149,6 +117,9 @@ class PROJECTREPLICA_API UPRAISpawnSystemComponent : public UActorComponent
 
 public:	
 	UPRAISpawnSystemComponent();
+
+protected:
+	virtual void DestroyComponent(bool bPromoteChildren) override;
 
 public:
 	/** AISpawnSystem을 초기화하는 함수입니다. */
@@ -165,29 +136,22 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
 	APRAICharacter* ActivateAI(TSubclassOf<APRAICharacter> AICharacterClass, FVector SpawnLocation = FVector::ZeroVector, FRotator SpawnRotation = FRotator::ZeroRotator);
-
+	
+	/** 인자에 해당하는 AI 캐릭터가 AIPool에 존재하며 활성화되었는지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
+	bool IsActivateAI(APRAICharacter* PooledAICharacter) const;
+	
 	/** 인자에 해당하는 AI 캐릭터 클래스의 Pool이 생성되었는지 판별하는 함수입니다. */	
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
 	bool IsCreateAIPool(TSubclassOf<APRAICharacter> AICharacterClass) const;
 
-	/** 인자에 해당하는 AI 캐릭터 클래스의 ActivateAICharacterList가 생성되었는지 판별하는 함수입니다. */	
+	/** 인자에 해당하는 AI 캐릭터 클래스의 ActivateAIIndexList가 생성되었는지 판별하는 함수입니다. */	
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
-	bool IsCreateActivateAIList(TSubclassOf<APRAICharacter> AICharacterClass) const;
+	bool IsCreateActivateAIIndexList(TSubclassOf<APRAICharacter> AICharacterClass) const;
 
-	/** 사용 중인 AIListIndexes를 가지고 있는지 판별하는 함수입니다. */
+	/** 인자에 해당하는 AI 캐릭터 클래스의 UsedAIIndexList가 생성되었는지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
-	bool IsCreateUsedAIListIndexes(TSubclassOf<APRAICharacter> AICharacterClass) const;
-
-	/** 인자에 해당하는 AI 캐릭터가 AIPool에 존재하며 활성화되었는지 판별하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
-	bool IsActivateAI(APRAICharacter* PooledAICharacter) const;
-
-	/**
-	 * 인자로 받은 AI 캐릭터를 비활성화하는 함수입니다.
-	 * AI 캐릭터의 OnAIDeactivate 델리게이트 바인딩합니다.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
-	void OnAIDeactivate(APRAICharacter* PooledAICharacter);
+	bool IsCreateUsedAIIndexList(TSubclassOf<APRAICharacter> AICharacterClass) const;
 
 	/** 활성화된 AI 캐릭터들을 반환하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
@@ -195,7 +159,7 @@ public:
 
 private:
 	/**
-	 * 인자로 받은 클래스에 해당하는 AI 캐릭터를 월드에 Spawn하고 비활성화하는 함수입니다.
+	 * 인자로 받은 클래스에 해당하는 AI 캐릭터를 월드에 Spawn하는 함수입니다.
 	 *
 	 * @param AICharacterClass 월드에 Spawn할 AI 캐릭터의 클래스
 	 * @return 월드에 Spawn한 AI 캐릭터
@@ -207,22 +171,22 @@ private:
 	 * AI 캐릭터를 월드에 Spawn하고 초기화하는 함수입니다.
 	 *
 	 * @param AICharacterClass 월드에 Spawn할 AI 캐릭터의 클래스
-	 * @param ListIndex 월드에 Spawn한 AI 캐릭터의 AICharacterPool의 AIList의 Index
+	 * @param Index 월드에 Spawn한 AI 캐릭터의 AIList의 Index
 	 * @return 월드에 Spawn한 AI 캐릭터
 	 */
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
-	APRAICharacter* SpawnAndInitializeAI(TSubclassOf<APRAICharacter> AICharacterClass, int32 ListIndex = 0);
+	APRAICharacter* SpawnAndInitializeAI(TSubclassOf<APRAICharacter> AICharacterClass, int32 Index = 0);
 
-	/** 인자로 받은 AICharacterPool의 설정을 바탕으로 AICharacterPool을 생성하는 함수입니다. */
+	/** 인자로 받은 AIPool의 설정을 바탕으로 AIPool을 생성하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
 	void CreateAIPool(FPRAIPoolSettings AIPoolSettings);
 
-	/** 인자로 받은 AI 캐릭터 클래스의 ActivateAICharacterList를 생성하는 함수입니다. */
+	/** 인자로 받은 AI 캐릭터 클래스의 ActivateAIIndexList를 생성하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
-	void CreateActivateAIList(TSubclassOf<APRAICharacter> AICharacterClass);
+	void CreateActivateAIIndexList(TSubclassOf<APRAICharacter> AICharacterClass);
 
 	/**
-	 * 사용 가능한 AIListIndex를 찾아 반환하는 함수입니다.
+	 * 사용 가능한 Index를 찾아 반환하는 함수입니다.
 	 *
 	 * @param UsedIndexes 이미 사용 중인 Index 목록
 	 * @return 사용 가능한 Index
@@ -230,6 +194,13 @@ private:
 	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
 	int32 FindAvailableIndex(const TSet<int32>& UsedIndexes);
 
+	/**
+	 * 인자로 받은 AI 캐릭터를 비활성화하는 함수입니다.
+	 * AI 캐릭터의 OnAIDeactivate 델리게이트 바인딩합니다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "PRAISpawnSystem")
+	void OnAIDeactivate(APRAICharacter* PooledAICharacter);
+	
 	/**
 	 * 동적으로 생성한 AI 캐릭터를 비활성화 하는 함수입니다.
 	 * AI 캐릭터의 OnDynamicAIDeactivate 델리게이트에 바인딩합니다.
@@ -254,24 +225,24 @@ private:
 	
 	/** 월드에 Spawn한 AI의 Pool입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRAISpawnSystem", meta = (AllowPrivateAccess = "true"))
-	TMap<TSubclassOf<APRAICharacter>, FPRAIList> AIPool;
+	TMap<TSubclassOf<APRAICharacter>, FPRAIPool> AIPool;
 
 	/** 활성화된 AI의 Index의 목록입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRAISpawnSystem", meta = (AllowPrivateAccess = "true"))
-	TMap<TSubclassOf<APRAICharacter>, FPRActivateAIList> ActivateAIList;
+	TMap<TSubclassOf<APRAICharacter>, FPRActivateIndexList> ActivateAIIndexList;
 
 	/**
-	 * AI 캐릭터를 PoolSize보다 많이 동적으로 생성할 때 사용한 AIListIndex의 목록입니다.
-	 * 동적으로 생성하는 AI 캐릭터의 AIListIndex에 오류가 생기지 않도록 하기 위해서 사용합니다.
+	 * AI 캐릭터를 PoolSize보다 많이 동적으로 생성할 때 사용한 AI 캐릭터의 Index의 목록입니다.
+	 * 동적으로 생성하는 AI 캐릭터의 Index에 오류가 생기지 않도록 하기 위해서 사용합니다.
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRAISpawnSystem", meta = (AllowPrivateAccess = "true"))
-	TMap<TSubclassOf<APRAICharacter>, FPRUsedAIList> UsedAIListIndexes;
+	TMap<TSubclassOf<APRAICharacter>, FPRUsedIndexList> UsedAIIndexList;
 
-	/** 동적으로 생성한 AI 캐릭터와 제거하는 TimerHandle을 보관한 TMap입니다. */
+	/** 동적으로 제거할 AI 캐릭터의 목록입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PRAISpawnSystem", meta = (AllowPrivateAccess = "true"))
-	TMap<APRAICharacter*, FTimerHandle> DynamicAIDestroyTimers;
+	TMap<TSubclassOf<APRAICharacter>, FPRDynamicDestroyAIList> DynamicDestroyAIList;
 
 	/** 동적으로 생성한 AI 캐릭터를 제거하는 딜레이 시간입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PRAISpawnSystem", meta = (AllowPrivateAccess = "true", ClampMin = "0"))
-	float DynamicDestroyDelay;	
+	float DynamicDestroyDelay;
 };

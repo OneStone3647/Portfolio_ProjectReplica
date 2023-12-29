@@ -11,6 +11,7 @@
 #include "Components/WidgetComponent.h"
 #include "Components/PRTargetAimSystemComponent.h"
 #include "Components/PRWeaponSystemComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Widgets/PRHealthPointBarWidget.h"
@@ -19,11 +20,15 @@
 APRAICharacter::APRAICharacter()
 {
 	// CapsuleComponent
-	GetCapsuleComponent()->SetCollisionProfileName(TEXT("AICharacter"));	
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("AICharacter"));
+
+	// CharacterMovement
+	GetCharacterMovement()->bUseControllerDesiredRotation = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
 
 	// AIActivate
 	bActivate = false;
-	DeactivateDelay = 2.0f;
+	Lifespan = 10.0f;
 
 	// TimeStop
 	bTimeStopActive = false;
@@ -40,14 +45,20 @@ APRAICharacter::APRAICharacter()
 	HealthPointBar->SetDrawSize(FVector2D(100.0f, 30.0f));
 	HealthPointBarVisibleTimeSinceTakeHit = 3.0f;
 
-	// AIListIndex
-	AIListIndex = 0;
+	// PoolIndex
+	PoolIndex = 0;
+}
+
+void APRAICharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
 }
 
 void APRAICharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// HealthPoint Widget 초기화
 	InitializeHealthPointBar();
 }
 
@@ -95,14 +106,14 @@ void APRAICharacter::Dead()
 	TargetAimSystem->GetLockOnWidget()->SetHiddenInGame(true);
 	HealthPointBar->SetHiddenInGame(true);
 
-	if(DeactivateDelay > 0)
+	if(Lifespan > 0)
 	{
-		// 타이머로 AI 캐릭터가 사망한 후 일정 시간이 지난 후 AI 캐릭터를 비활성화합니다.
+		// 타이머로 AI 캐릭터가 사망한 후 수명이 다하면 AI 캐릭터를 비활성화합니다.
 		FTimerHandle DeactivateDelayTimerHandle;
 		GetWorld()->GetTimerManager().SetTimer(DeactivateDelayTimerHandle, FTimerDelegate::CreateLambda([&]()
 		{
 			Deactivate();
-		}), DeactivateDelay, false);
+		}), Lifespan, false);
 	}
 	else
 	{
@@ -120,7 +131,7 @@ void APRAICharacter::Activate()
 {
 	bActivate = true;
 	SetActorHiddenInGame(false);
-	GetCapsuleComponent()->SetCollisionProfileName("AICharacter");
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("AICharacter"));
 
 	// FootIk를 활성화합니다.
 	UPRBaseAnimInstance* PRAnimInstance = Cast<UPRBaseAnimInstance>(GetMesh()->GetAnimInstance());
@@ -133,7 +144,7 @@ void APRAICharacter::Activate()
 void APRAICharacter::Deactivate()
 {
 	SetActorHiddenInGame(true);
-	GetCapsuleComponent()->SetCollisionProfileName("NoCollision");
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("NoCollision"));
 
 	// FootIk를 비활성화합니다.
 	UPRBaseAnimInstance* PRAnimInstance = Cast<UPRBaseAnimInstance>(GetMesh()->GetAnimInstance());
@@ -158,11 +169,6 @@ void APRAICharacter::Deactivate()
 	}
 
 	bActivate = false;
-}
-
-void APRAICharacter::SetDeactivateDelay(float NewDeactivateDelay)
-{
-	DeactivateDelay = NewDeactivateDelay;
 }
 #pragma endregion
 
@@ -254,14 +260,30 @@ void APRAICharacter::SetSpawner(APRAISpawner* NewSpawner)
 }
 #pragma endregion 
 
-#pragma region AIListIndex
-int32 APRAICharacter::GetAIListIndex() const
+#pragma region PoolIndex
+int32 APRAICharacter::GetPoolIndex() const
 {
-	return AIListIndex;
+	return PoolIndex;
 }
 
-void APRAICharacter::SetAIListIndex(int32 NewAIListIndex)
+void APRAICharacter::SetPoolIndex(int32 NewAIListIndex)
 {
-	AIListIndex = NewAIListIndex;
+	PoolIndex = NewAIListIndex;
+}
+#pragma endregion 
+
+#pragma region AI
+void APRAICharacter::DefaultAttack()
+{
+	if(AttackAnimMontage != nullptr)
+	{
+		// GetMesh()->GetAnimInstance()->Montage_Play(AttackAnimMontage);
+
+		UPRBaseAnimInstance* AnimInstance = Cast<UPRBaseAnimInstance>(GetMesh()->GetAnimInstance());
+		if(AnimInstance != nullptr)
+		{
+			// AnimInstance->PlayAnAnimMontage(AttackAnimMontage);
+		}
+	}
 }
 #pragma endregion 

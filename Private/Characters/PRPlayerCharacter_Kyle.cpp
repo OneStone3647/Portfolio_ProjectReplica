@@ -6,7 +6,6 @@
 #include "PRPlayerController.h"
 #include "Camera/CameraComponent.h"
 #include "Components/PRAnimSystemComponent.h"
-#include "Components/PREffectSystemComponent.h"
 #include "Components/PRMovementSystemComponent.h"
 #include "Components/PRSkillSystemComponent.h"
 #include "Components/PRStateSystemComponent.h"
@@ -16,12 +15,20 @@
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "Skills/Characters/Kyle/PRSkill_Kyle_DodgeAttack.h"
 #include "Components/SceneCaptureComponent2D.h"
+#include "Objects/PRScreenShatter.h"
+#include "Blueprint/UserWidget.h"
 
 APRPlayerCharacter_Kyle::APRPlayerCharacter_Kyle()
 {
+	// SceneCapture
+	SceneCapture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("SceneCapture"));
+	SceneCapture->SetupAttachment(FollowCamera);
+	SceneCapture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
+	SceneCapture->bCaptureEveryFrame = false;
+	SceneCapture->bCaptureOnMovement = false;
+	
 	// Dodge
 	ForwardDodgePRAnimMontageID = 1000;
 	BackwardDodgePRAnimMontageID = 1001;
@@ -76,6 +83,38 @@ void APRPlayerCharacter_Kyle::SetupPlayerInputComponent(UInputComponent* PlayerI
 	// CommandInput
 	PlayerInputComponent->BindAction("NormalAttack", IE_Pressed, this, &APRPlayerCharacter_Kyle::NormalAttack);
 }
+
+#pragma region Camera
+void APRPlayerCharacter_Kyle::ActivateScreenShatter_Implementation()
+{
+	// 블루프린트에서 구현합니다.
+	// C++ 코드로 작성하면 Destructible가 작동하지 않습니다.
+
+	
+	// if(IsValid(SceneCapture))
+	// {
+	// 	SceneCapture->CaptureScene();
+	// 	APRScreenShatter* NewScreenShatter = GetWorld()->SpawnActor<APRScreenShatter>(ScreenShatter);
+	// 	if(IsValid(NewScreenShatter))
+	// 	{
+	// 		// ScreenShatter 이외에 아무것도 보이지 않아야합니다.
+	// 		NewScreenShatter->SetActorLocation(FVector(0.0f, 0.0f, -4000.0f));
+	// 	
+	// 		// ScreenShatterWidget을 생성하고 Viewport에 추가합니다.
+	// 		APRPlayerController* PRPlayerController = Cast<APRPlayerController>(GetController());
+	// 		if(PRPlayerController != nullptr)
+	// 		{
+	// 			UUserWidget* NewScreenShatterWidget = PRPlayerController->CreateWidgetFromClassReference(ScreenShatterWidget);
+	// 			if(IsValid(NewScreenShatterWidget))
+	// 			{
+	// 				// Viewport의 제일 상단에 출력합니다.
+	// 				NewScreenShatterWidget->AddToViewport(1);
+	// 			}
+	// 		}
+	// 	}
+	// }
+}
+#pragma endregion
 
 #pragma region MovementInput
 void APRPlayerCharacter_Kyle::Jump()

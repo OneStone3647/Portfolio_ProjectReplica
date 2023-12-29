@@ -62,7 +62,8 @@ void APRJudgementSlashProjectile::SpawnImpactNiagaraEffect(FVector Location, FRo
 void APRJudgementSlashProjectile::Activate_Implementation()
 {
 	Super::Activate_Implementation();
-	
+
+	// InitializeSpawnLocation();
 	GetHitBox()->SetCollisionProfileName("PlayerProjectile");
 }
 
@@ -75,8 +76,6 @@ void APRJudgementSlashProjectile::Deactivate_Implementation()
 
 void APRJudgementSlashProjectile::InitializeSpawnLocation_Implementation()
 {
-	Super::InitializeSpawnLocation_Implementation();
-
 	if(IsValid(GetObjectOwner()) == true)
 	{
 		APRBaseCharacter* PRBaseCharacterOwner = Cast<APRBaseCharacter>(GetObjectOwner());
@@ -179,14 +178,30 @@ void APRJudgementSlashProjectile::ApplyDamage(TMap<AActor*, bool>& NewHitActors,
 			FDamageEvent DamageEvent;
 			const float TotalDamage = ProjectileDamage;
 
-			UGameplayStatics::ApplyDamage(NewHitActor, TotalDamage, PRBaseCharacterOwner->GetController(), PRBaseCharacterOwner, nullptr);
+			// UGameplayStatics::ApplyDamage(NewHitActor, TotalDamage, PRBaseCharacterOwner->GetController(), PRBaseCharacterOwner, nullptr);
+
+			if(NewHitActor->GetClass()->ImplementsInterface(UInterface_PRDamageable::StaticClass()))
+			{
+				FPRDamageInfo DamageInfo;
+				DamageInfo.Amount = TotalDamage;
+				DamageInfo.DamageType = EPRDamageType::DamageType_Melee;
+				DamageInfo.DamageResponse = EPRDamageResponse::DamageResponse_HitReaction;
+
+				bool bWasDamaged = IInterface_PRDamageable::Execute_TakeDamage(NewHitActor, DamageInfo);
+				if(bWasDamaged && bActivateDebug)
+				{
+					UKismetSystemLibrary::PrintString(GetWorld(), "Hit Actor: " + NewHitActor->GetName() + ", GetDamage: " + FString::SanitizeFloat(TotalDamage),
+											true, false, FLinearColor::Red, 5.0f);
+				}
+			}
+			
 			NewHitActors.Emplace(NewHitActor, true);
 
-			if(bActivateDebug)
-			{
-				UKismetSystemLibrary::PrintString(GetWorld(), "Hit Actor: " + NewHitActor->GetName() + ", GetDamage: " + FString::SanitizeFloat(TotalDamage),
-										true, false, FLinearColor::Red, 5.0f);
-			}
+			// if(bActivateDebug)
+			// {
+			// 	UKismetSystemLibrary::PrintString(GetWorld(), "Hit Actor: " + NewHitActor->GetName() + ", GetDamage: " + FString::SanitizeFloat(TotalDamage),
+			// 							true, false, FLinearColor::Red, 5.0f);
+			// }
 		}
 	}
 }

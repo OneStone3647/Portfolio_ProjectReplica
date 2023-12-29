@@ -3,6 +3,7 @@
 
 #include "Widgets/PRInteractSlotWidget.h"
 #include "PRPlayerController.h"
+#include "Interfaces/Interface_PRInteract.h"
 #include "Interfaces/PRInteractInterface.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -20,9 +21,9 @@ void UPRInteractSlotWidget::InitializeSlot(AActor* NewInteractableObject)
 
 UTexture2D* UPRInteractSlotWidget::GetInteractObjectIcon() const
 {
-	if(InteractableObject->GetClass()->ImplementsInterface(UPRInteractInterface::StaticClass()) == true)
+	if(InteractableObject->GetClass()->ImplementsInterface(UInterface_PRInteract::StaticClass()) == true)
 	{
-		return IPRInteractInterface::Execute_GetInteractInfo(InteractableObject.Get()).Icon;
+		return IInterface_PRInteract::Execute_GetInteractInfo(InteractableObject.Get()).Icon;
 	}
 
 	return nullptr;
@@ -44,9 +45,9 @@ UTexture2D* UPRInteractSlotWidget::GetActivateInteractInputIcon() const
 
 FText UPRInteractSlotWidget::GetInteractDescription() const
 {
-	if(InteractableObject->GetClass()->ImplementsInterface(UPRInteractInterface::StaticClass()) == true)
+	if(InteractableObject->GetClass()->ImplementsInterface(UInterface_PRInteract::StaticClass()) == true)
 	{
-		return FText::FromString(IPRInteractInterface::Execute_GetInteractInfo(InteractableObject.Get()).Description);
+		return FText::FromString(IInterface_PRInteract::Execute_GetInteractInfo(InteractableObject.Get()).Description);
 	}
 
 	return FText();

@@ -306,6 +306,11 @@ bool UPRMovementSystemComponent::IsEqualGait(const EPRGait& NewGait) const
 
 void UPRMovementSystemComponent::UpdateGait(float NewSpeed)
 {
+	if(!IsValid(GetPROwner()))
+	{
+		return;
+	}
+	
 	if(NewSpeed > RunSpeed + 5.0f)
 	{
 		Gait = EPRGait::Gait_Sprinting;
@@ -325,6 +330,11 @@ void UPRMovementSystemComponent::UpdateGait(float NewSpeed)
 
 void UPRMovementSystemComponent::SetRotationMode(EPRRotationMode NewRotationMode)
 {
+	if(!IsValid(GetPROwner()))
+	{
+		return;
+	}
+	
 	RotationMode = NewRotationMode;
 	switch(RotationMode)
 	{

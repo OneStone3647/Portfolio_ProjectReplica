@@ -5,13 +5,15 @@
 #include "ProjectReplica.h"
 #include "Common/PRCommonStruct.h"
 #include "GameFramework/Character.h"
+#include "Interfaces/Interface_PRDamageable.h"
 #include "Weapons/PRBaseWeapon.h"
 #include "PRBaseCharacter.generated.h"
 
+class UPRStatSystemComponent;
+class UPRDamageSystemComponent;
 class UPRAnimSystemComponent;
 class UPRMovementSystemComponent;
 class UPRStateSystemComponent;
-class UPRStatSystemComponent;
 class UPRWeaponSystemComponent;
 class UPRSkillSystemComponent;
 class UPRObjectPoolSystemComponent;
@@ -23,7 +25,7 @@ struct FPRWeaponGroup;
  * 기본 캐릭터 클래스입니다.
  */
 UCLASS()
-class PROJECTREPLICA_API APRBaseCharacter : public ACharacter
+class PROJECTREPLICA_API APRBaseCharacter : public ACharacter, public IInterface_PRDamageable
 {
 	GENERATED_BODY()
 
@@ -38,11 +40,33 @@ protected:
 	virtual void Landed(const FHitResult& Hit) override;
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+#pragma region Interface_Damageable
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Interface_Damageable")
+	float GetCurrentHealth();
+	virtual float GetCurrentHealth_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Interface_Damageable")
+	float GetMaxHealth();
+	virtual float GetMaxHealth_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Interface_Damageable")
+	float Heal(float Amount);
+	virtual float Heal_Implementation(float Amount) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Interface_Damageable")
+	bool TakeDamage(FPRDamageInfo DamageInfo);
+	virtual bool TakeDamage_Implementation(FPRDamageInfo DamageInfo) override;
+#pragma endregion 
+
 #pragma region TakeDamage
 public:
 	/** 캐릭터가 사망했는지 판별하는 함수입니다. */
 	UFUNCTION(BlueprintCallable, Category = "PRBaseCharacter|TakeDamage")
 	bool IsDead() const;
+
+	/** 캐릭터가 무적상태인지 판별하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, Category = "PRBaseCharacter|TakeDamage")
+	bool IsInvincible() const;
 	
 protected:
 	/**
@@ -80,6 +104,47 @@ protected:
 	FTimerHandle JumpedDelayTimerHandle;
 #pragma endregion
 
+#pragma region StatSystem
+private:
+	/** 캐릭터의 스탯을 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "StatSystem", meta = (AllowPrivateAccess = "true"))
+	UPRStatSystemComponent* StatSystem;
+
+public:
+	/** StatSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRStatSystemComponent* GetStatSystem() const { return StatSystem; }
+#pragma endregion
+
+#pragma region DamageSystem
+public:
+	UFUNCTION(BlueprintCallable, Category = "DamagaSystem")
+	virtual void Death();
+
+	UFUNCTION(BlueprintCallable, Category = "DamagaSystem")
+	virtual void Blocked(bool bCanBeParried);
+
+	UFUNCTION(BlueprintCallable, Category = "DamagaSystem")
+	virtual void DamageResponse(EPRDamageResponse DamageResponse);
+
+	UFUNCTION(BlueprintCallable, Category = "DamagaSystem")
+	virtual void DoDamage();	
+	
+private:
+	/** 대미지를 관리하는 ActorComponent입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "DamagaSystem", meta = (AllowPrivateAccess = "true"))
+	UPRDamageSystemComponent* DamageSystem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DamagaSystem", meta = (AllowPrivateAccess = "true"))
+	bool bDamageSystemDebug;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DamagaSystem", meta = (AllowPrivateAccess = "true"))
+	UNiagaraSystem* HitEffect;	
+
+public:
+	/** DamageSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRDamageSystemComponent* GetDamageSystem() const { return DamageSystem; }
+#pragma endregion 
+
 #pragma region AnimSystem
 protected:
 	/** 캐릭터가 사용하는 PRAnimMontage들을 초기화하는 함수입니다. */
@@ -116,17 +181,6 @@ public:
 	/** StateSystem을 반환하는 함수입니다. */
 	FORCEINLINE class UPRStateSystemComponent* GetStateSystem() const { return StateSystem;	}
 #pragma endregion 
-
-#pragma region StatSystem
-private:
-	/** 캐릭터의 스탯을 관리하는 ActorComponent입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "StatSystem", meta = (AllowPrivateAccess = "true"))
-	UPRStatSystemComponent* StatSystem;
-
-public:
-	/** StatSystem을 반환하는 함수입니다. */
-	FORCEINLINE class UPRStatSystemComponent* GetStatSystem() const { return StatSystem; }
-#pragma endregion
 
 #pragma region WeaponSystem
 public:

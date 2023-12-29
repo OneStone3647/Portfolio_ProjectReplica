@@ -4,6 +4,7 @@
 #include "Widgets/PRInteractWidget.h"
 #include "PRPlayerController.h"
 #include "Components/VerticalBox.h"
+#include "Interfaces/Interface_PRInteract.h"
 #include "Widgets/PRInteractSlotWidget.h"
 #include "Interfaces/PRInteractInterface.h"
 #include "Kismet/GameplayStatics.h"
@@ -27,7 +28,7 @@ void UPRInteractWidget::NativeConstruct()
 
 void UPRInteractWidget::AddToInteractList(AActor* NewInteractableObject)
 {
-	if(InteractListSlotClass != nullptr && NewInteractableObject->GetClass()->ImplementsInterface(UPRInteractInterface::StaticClass()) == true)
+	if(InteractListSlotClass != nullptr && NewInteractableObject->GetClass()->ImplementsInterface(UInterface_PRInteract::StaticClass()) == true)
 	{
 		UPRInteractSlotWidget* NewInteractSlot = Cast<UPRInteractSlotWidget>(CreateWidget(this, InteractListSlotClass));
 		if(NewInteractSlot != nullptr)

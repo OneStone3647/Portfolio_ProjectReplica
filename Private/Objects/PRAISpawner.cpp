@@ -63,9 +63,7 @@ void APRAISpawner::SpawnAI()
 	AProjectReplicaGameMode* PRGameMode = Cast<AProjectReplicaGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 	if(PRGameMode != nullptr)
 	{
-		UPRAISpawnSystemComponent* AISpawnSystem = PRGameMode->GetAISpawnSystem();
-		// APRAICharacter* SpawnAICharacter = AISpawnSystem->ActivateAI(SpawnAICharacterClass, GetActorLocation(), GetActorRotation());
-		SpawnAICharacter = AISpawnSystem->ActivateAI(SpawnAICharacterClass, GetActorLocation(), GetActorRotation());
+		SpawnAICharacter = PRGameMode->ActivateAI(SpawnAICharacterClass, GetActorLocation(), GetActorRotation());
 		if(SpawnAICharacter != nullptr)
 		{
 			SpawnAICharacter->SetSpawner(this);

@@ -23,7 +23,7 @@ AProjectReplicaGameMode::AProjectReplicaGameMode()
 void AProjectReplicaGameMode::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-
+	
 	// AISpawnSystem을 초기화하여 초기 AIPool을 생성합니다.
 	GetAISpawnSystem()->InitializeAISpawnSystem();
 }

@@ -4,13 +4,13 @@
 
 #include "ProjectReplica.h"
 #include "GameFramework/Actor.h"
-#include "Interfaces/PRInteractInterface.h"
+#include "Interfaces/Interface_PRInteract.h"
 #include "PRBaseInteractableObject.generated.h"
 
 class UBoxComponent;
 
 UCLASS()
-class PROJECTREPLICA_API APRBaseInteractableObject : public AActor, public IPRInteractInterface
+class PROJECTREPLICA_API APRBaseInteractableObject : public AActor, public IInterface_PRInteract
 {
 	GENERATED_BODY()
 	

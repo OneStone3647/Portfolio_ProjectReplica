@@ -38,8 +38,12 @@ protected:
 	
 private:
 	/** 회피 공격에 사용하여 대미지를 가하는 오브젝트의 정보입니다. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectInfo", meta = (AllowPrivateAccess = "true"))
-	FPRPooledObjectInfo DodgeAttackProjectile;
+	// UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "ObjectInfo", meta = (AllowPrivateAccess = "true"))
+	// FPRObjectPoolSettings DodgeAttackProjectile;
+
+	/** 회피 공격에 사용하여 대미지를 가하는 오브젝트입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DodgeAttack", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<APRPooledObject> DodgeAttackProjectile;
 	
 	/** 회피 공격 자세의 지속시간에 사용하는 TimerHandle입니다. */
 	FTimerHandle SkillTimerHandle;

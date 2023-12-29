@@ -159,6 +159,32 @@ enum class EPRAction : uint8
 	Action_CoreSkill			UMETA(DosplayName = "CoreSkill"),
 	Action_Guard				UMETA(DisplayName = "Guard"),
 	Action_Parry				UMETA(DisplayName = "Parry"),
-	Action_DodgeAttack			UMETA(DisplayName = "DodgeAttack"),
+	Action_DodgeAttack			UMETA(DisplayName = "DodgeAttack")
+};
+
+/**
+ * 대미지 타입을 나타내는 열거형입니다.
+ */
+UENUM(BlueprintType)
+enum class EPRDamageType : uint8
+{
+	DamageType_None				UMETA(DisplayName = "None"),
+	DamageType_Melee			UMETA(DisplayName = "Melee"),
+	DamageType_Projectile		UMETA(DisplayName = "Projectile"),
+	DamageType_Explosion		UMETA(DisplayName = "Explosion"),
+	DamageType_Environment		UMETA(DisplayName = "Environment")
+};
+
+/**
+ * 대미지 반응을 나타내는 열거형입니다.
+ */
+UENUM(BlueprintType)
+enum class EPRDamageResponse : uint8
+{
+	DamageResponse_None				UMETA(DisplayName = "None"),
+	DamageResponse_HitReaction		UMETA(DisplayName = "HitReaction"),			// 적중반응
+	DamageResponse_Stagger			UMETA(DisplayName = "Stagger"),				// 비틀거림
+	DamageResponse_Stun				UMETA(DisplayName = "Stun"),				// 스턴
+	DamageResponse_KnockBack		UMETA(DisplayName = "KnockBack")			// 넉백
 };
 

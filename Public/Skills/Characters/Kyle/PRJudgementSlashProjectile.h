@@ -46,7 +46,6 @@ public:
 	/** 오브젝트를 비활성화하는 함수입니다. */
 	virtual void Deactivate_Implementation() override;
 
-protected:
 	/** 오브젝트의 Spawn 위치를 초기화하는 함수입니다. */
 	virtual void InitializeSpawnLocation_Implementation() override;
 

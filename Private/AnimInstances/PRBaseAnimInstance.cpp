@@ -54,12 +54,17 @@ UPRBaseAnimInstance::UPRBaseAnimInstance()
 	JointTargetRight = FVector(50.f, 217.0f, 38.0f);
 }
 
-void UPRBaseAnimInstance::NativeBeginPlay()
+void UPRBaseAnimInstance::NativeInitializeAnimation()
 {
-	Super::NativeBeginPlay();
+	Super::NativeInitializeAnimation();
 
 	// CharacterReference
 	InitializePROwner();
+}
+
+void UPRBaseAnimInstance::NativeBeginPlay()
+{
+	Super::NativeBeginPlay();
 
 	// FootIK
 	OwnerInitializeCapsuleHalfHeight = PROwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
@@ -347,4 +352,39 @@ FRotator UPRBaseAnimInstance::CalculateNormalToRotator(FVector NormalVector)
 
 	return ResultRotation;
 }
+#pragma endregion 
+
+#pragma region AnimMontage
+// void UPRBaseAnimInstance::PlayAnAnimMontage(UAnimMontage* AnimMontage)
+// {
+// 	if(AnimMontage != nullptr)
+// 	{
+// 		Montage_Play(AnimMontage);
+//
+// 		FOnMontageEnded BlendOutDelegate;
+// 		BlendOutDelegate.BindUObject(this, &UPRBaseAnimInstance::FunctionToExecuteOnAnimationBlendOut);
+// 		Montage_SetBlendingOutDelegate(BlendOutDelegate, AnimMontage);
+//
+// 		FOnMontageEnded CompleteDelegate;
+// 		CompleteDelegate.BindUObject(this, &UPRBaseAnimInstance::FunctionToExecuteOnAnimationEnd);
+// 		Montage_SetEndDelegate(CompleteDelegate, AnimMontage);
+// 	}
+// }
+//
+// void UPRBaseAnimInstance::FunctionToExecuteOnAnimationBlendOut(UAnimMontage* AnimMontage, bool bInterrupted)
+// {
+// 	if(bInterrupted)
+// 	{
+// 		PR_LOG_SCREEN("Interrupted");
+// 	}
+// 	else
+// 	{
+// 		PR_LOG_SCREEN("Blend Out");
+// 	}
+// }
+//
+// void UPRBaseAnimInstance::FunctionToExecuteOnAnimationEnd(UAnimMontage* AnimMontage, bool bInterrupted)
+// {
+// 	PR_LOG_SCREEN("Completed");
+// }
 #pragma endregion 

@@ -48,16 +48,13 @@ UPRSkill_Kyle_GeneralUltimate::UPRSkill_Kyle_GeneralUltimate()
 	UltimateCastingAudioComponent = nullptr;
 
 	// Effect
-	UltimateSlashMirrorObject = FPRPooledObjectInfo();
-	UltimateSlashNiagaraEffect = FPRNiagaraEffectInfo();
-	UltimateSlashSpawnAreaExtent = FVector(300.0f);
+	UltimateSlashGlassObject = nullptr;
+	UltimateSlashGlassObjectSpawnAreaExtent = FVector(600.0f, 600.0f, 0.0f);
+	UltimateSlashNiagaraEffect = nullptr;
+	UltimateSlashNiagaraEffectSpawnAreaExtent = FVector(300.0f, 300.0f, 0.0f);
 	UltimateSlashSpawnInterval = 5;
 	UltimateSlashInterval = 0.1f;
 	UltimateSlashAccumulatedInterval = 0.0f;
-
-	// ScreenShatter
-	ScreenShatter = nullptr;
-	ScreenShatterWidget = nullptr;
 }
 
 void UPRSkill_Kyle_GeneralUltimate::InitializeSkill_Implementation()
@@ -65,23 +62,6 @@ void UPRSkill_Kyle_GeneralUltimate::InitializeSkill_Implementation()
 	Super::InitializeSkill_Implementation();
 
 	UltimateActivateLocation = FVector::ZeroVector;
-	
-	if(IsValid(GetSkillOwner()) == true)
-	{
-		// UltimateNiagaraEffect 생성
-		if(UltimateSlashNiagaraEffect.NiagaraSystem != nullptr
-			&& GetSkillOwner()->GetEffectSystem()->IsValidNiagaraEffectPool(UltimateSlashNiagaraEffect.NiagaraSystem) == false)
-		{
-			GetSkillOwner()->GetEffectSystem()->CreateNiagaraEffectPool(UltimateSlashNiagaraEffect);
-		}
-
-		// UltimateSlashMirrorObject 생성
-		if(UltimateSlashMirrorObject.PooledObjectClass != nullptr
-			&& GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(UltimateSlashMirrorObject.PooledObjectClass) == false)
-		{
-			GetSkillOwner()->GetObjectPoolSystem()->CreateObjectPool(UltimateSlashMirrorObject);
-		}
-	}
 }
 
 bool UPRSkill_Kyle_GeneralUltimate::ActivateSkill_Implementation()
@@ -118,7 +98,7 @@ bool UPRSkill_Kyle_GeneralUltimate::ActivateSkill_Implementation()
 
 		// 캐릭터의 움직임 입력과 카메라 입력을 차단합니다.
 		PRPlayerCharacter->SetLockMovementInput(true);
-		PRPlayerCharacter->SetLockCamera(true);
+		// PRPlayerCharacter->SetLockCamera(true);
 		
 		// 스킬을 실행하는 동안 다른 동작을 할 수 없도록 설정합니다.
 		PRPlayerCharacter->GetStateSystem()->SetActionable(EPRAction::Action_Move, false);
@@ -268,7 +248,7 @@ void UPRSkill_Kyle_GeneralUltimate::ActivateUltimate()
 
 void UPRSkill_Kyle_GeneralUltimate::FinishUltimate()
 {
-	APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(GetSkillOwner());
+	APRPlayerCharacter_Kyle* PRPlayerCharacter = Cast<APRPlayerCharacter_Kyle>(GetSkillOwner());
 	if(IsValid(PRPlayerCharacter) == true)
 	{
 		bFinishUltimate = true;
@@ -284,12 +264,6 @@ void UPRSkill_Kyle_GeneralUltimate::FinishUltimate()
 			bFinishUltimate = false;
 			FinishUltimateCount = 0;
 
-			// ScreenShatter 실행
-			ActivateScreenShatter();
-			
-			// GeneralUltimateSlash 비활성화
-			DeactivateUltimateSlash();
-
 			// 마무리 대미지를 줍니다.
 			ApplyDamageUltimateArea(UltimateFinishDamage);
 			
@@ -299,12 +273,18 @@ void UPRSkill_Kyle_GeneralUltimate::FinishUltimate()
 				PRPlayerCharacter->DeactivateTimeStop();
 			}
 
+			// ScreenShatter 실행
+			PRPlayerCharacter->ActivateScreenShatter();
+			
+			// GeneralUltimateSlash 비활성화
+			DeactivateUltimateSlash();
+
 			// 무기를 납도합니다.
 			PRPlayerCharacter->GetWeaponSystem()->SheathWeapon(static_cast<int32>(EPRAttackMode::AttackMode_General));
 			
 			// 캐릭터의 움직임 입력과 카메라 입력을 허용합니다.
 			PRPlayerCharacter->SetLockMovementInput(false);
-			PRPlayerCharacter->SetLockCamera(false);
+			// PRPlayerCharacter->SetLockCamera(false);
 
 			// 캐릭터의 무적상태를 해제합니다.
 			PRPlayerCharacter->GetStateSystem()->SetIsInvincible(false);
@@ -339,18 +319,21 @@ void UPRSkill_Kyle_GeneralUltimate::SetVisibilityPlayerCharacterAndWeapon(bool b
 
 void UPRSkill_Kyle_GeneralUltimate::ActivateUltimateSlash()
 {
-	if(IsValid(GetSkillOwner()) == true
-		&& GetSkillOwner()->GetEffectSystem()->IsValidNiagaraEffectPool(UltimateSlashNiagaraEffect.NiagaraSystem) == true)
+	if(IsValid(GetSkillOwner()))
 	{
-		// Slash Effect를 Spawn합니다.
-		FVector NiagaraEffectRandomLocation = UKismetMathLibrary::RandomPointInBoundingBox(UltimateActivateLocation, UltimateSlashSpawnAreaExtent);
-		GetSkillOwner()->GetEffectSystem()->SpawnNiagaraEffectAtLocation(UltimateSlashNiagaraEffect.NiagaraSystem, NiagaraEffectRandomLocation,
-																			UKismetMathLibrary::RandomRotator());
+		// SlashNiagaraEffect를 활성화합니다.
+		if(UltimateSlashNiagaraEffect != nullptr && GetSkillOwner()->GetEffectSystem()->IsCreateNiagaraEffectPool(UltimateSlashNiagaraEffect))
+		{
+			FVector NiagaraEffectRandomLocation = UKismetMathLibrary::RandomPointInBoundingBox(UltimateActivateLocation, UltimateSlashNiagaraEffectSpawnAreaExtent);
+			GetSkillOwner()->GetEffectSystem()->SpawnNiagaraEffectAtLocation(UltimateSlashNiagaraEffect, NiagaraEffectRandomLocation, UKismetMathLibrary::RandomRotator());
+		}
 		
-		// MirrorObject를 Spawn합니다.
-		FVector MirrorObjectRandomLocation = UKismetMathLibrary::RandomPointInBoundingBox(UltimateActivateLocation, UltimateAreaExtent);
-		APRPooledObject* MirrorObject = GetSkillOwner()->GetObjectPoolSystem()->ActivatePooledObject(UltimateSlashMirrorObject.PooledObjectClass);
-		MirrorObject->SetActorLocationAndRotation(MirrorObjectRandomLocation, UKismetMathLibrary::RandomRotator());
+		// GlassObject를 활성화합니다.
+		if(UltimateSlashGlassObject != nullptr && GetSkillOwner()->GetObjectPoolSystem()->IsCreateObjectPool(UltimateSlashGlassObject))
+		{
+			FVector GlassObjectRandomLocation = UKismetMathLibrary::RandomPointInBoundingBox(UltimateActivateLocation, UltimateSlashGlassObjectSpawnAreaExtent);
+			APRPooledObject* GlassObject = GetSkillOwner()->GetObjectPoolSystem()->ActivatePooledObject(UltimateSlashGlassObject, GlassObjectRandomLocation, UKismetMathLibrary::RandomRotator(true));
+		}
 
 		// Slash 사운드를 재생합니다.
 		UGameplayStatics::SpawnSoundAttached(UltimateSlashSound, GetSkillOwner()->GetMesh());
@@ -364,16 +347,16 @@ void UPRSkill_Kyle_GeneralUltimate::DeactivateUltimateSlash()
 {
 	if(IsValid(GetSkillOwner()) == true)
 	{
-		// Slash Effect 비활성화
-		if(GetSkillOwner()->GetEffectSystem()->IsValidNiagaraEffectPool(UltimateSlashNiagaraEffect.NiagaraSystem) == true)
+		// SlashNiagaraEffect를 활성화합니다.
+		if(GetSkillOwner()->GetEffectSystem()->IsCreateNiagaraEffectPool(UltimateSlashNiagaraEffect))
 		{
-			GetSkillOwner()->GetEffectSystem()->DeactivateNiagaraEffectPool(UltimateSlashNiagaraEffect.NiagaraSystem);
+			GetSkillOwner()->GetEffectSystem()->DeactivateNiagaraEffectPool(UltimateSlashNiagaraEffect);
 		}
 
-		// MirrorObject 비활성화
-		if(GetSkillOwner()->GetObjectPoolSystem()->IsCreatePooledObject(UltimateSlashMirrorObject.PooledObjectClass) == true)
+		// GlassObject를 비활성화합니다.
+		if(GetSkillOwner()->GetObjectPoolSystem()->IsCreateObjectPool(UltimateSlashGlassObject))
 		{
-			GetSkillOwner()->GetObjectPoolSystem()->DeactivateObjectPool(UltimateSlashMirrorObject.PooledObjectClass);
+			GetSkillOwner()->GetObjectPoolSystem()->DeactivateObjectPool(UltimateSlashGlassObject);
 		}
 	}
 }
@@ -412,34 +395,17 @@ void UPRSkill_Kyle_GeneralUltimate::ApplyDamageUltimateArea(float NewApplyDamage
 				if(Hit.Actor.IsValid() == true)
 				{
 					AActor* HitActor = Hit.GetActor();
-					UGameplayStatics::ApplyDamage(HitActor, NewApplyDamage, PRCharacter->GetController(), PRCharacter, nullptr);
-				}
-			}
-		}
-	}
-}
+					// UGameplayStatics::ApplyDamage(HitActor, NewApplyDamage, PRCharacter->GetController(), PRCharacter, nullptr);
 
-void UPRSkill_Kyle_GeneralUltimate::ActivateScreenShatter()
-{
-	APRPlayerCharacter* PRPlayerCharacter = Cast<APRPlayerCharacter>(GetSkillOwner());
-	if(IsValid(PRPlayerCharacter) == true)
-	{
-		PRPlayerCharacter->GetSceneCapture()->CaptureScene();
-		APRScreenShatter* NewScreenShatter = PRPlayerCharacter->GetWorld()->SpawnActor<APRScreenShatter>(ScreenShatter);
-		if(IsValid(NewScreenShatter) == true)
-		{
-			// ScreenShatter 이외에 아무것도 보이지 않아야합니다.
-			NewScreenShatter->SetActorLocation(FVector(0.0f, 0.0f, -4000.0f));
+					if(HitActor->GetClass()->ImplementsInterface(UInterface_PRDamageable::StaticClass()))
+					{
+						FPRDamageInfo DamageInfo;
+						DamageInfo.Amount = NewApplyDamage;
+						DamageInfo.DamageType = EPRDamageType::DamageType_Melee;
+						DamageInfo.DamageResponse = EPRDamageResponse::DamageResponse_HitReaction;
 
-			// ScreenShatterWidget을 생성하고 Viewport에 추가합니다.
-			APRPlayerController* PRPlayerController = Cast<APRPlayerController>(PRPlayerCharacter->GetController());
-			if(PRPlayerController != nullptr)
-			{
-				UUserWidget* NewScreenShatterWidget = PRPlayerController->CreateWidgetFromClassReference(ScreenShatterWidget);
-				if(IsValid(NewScreenShatterWidget) == true)
-				{
-					// Viewport의 제일 상단에 출력합니다.
-					NewScreenShatterWidget->AddToViewport(1);
+						bool bWasDamaged = IInterface_PRDamageable::Execute_TakeDamage(HitActor, DamageInfo);
+					}
 				}
 			}
 		}

@@ -41,7 +41,7 @@ bool APRAfterImage::IsActivate() const
 void APRAfterImage::CreatePoseableMeshMaterials(USkeletalMeshComponent* NewMesh)
 {
 	TArray<UMaterialInterface*> PoseableMeshMaterials = PoseableMesh->GetMaterials();
-	for(int32 Index = 0; Index < PoseableMeshMaterials.Num(); ++Index)
+	for(int32 MaterialIndex = 0; MaterialIndex < PoseableMeshMaterials.Num(); ++MaterialIndex)
 	{
 		APRBaseCharacter* PROwner = Cast<APRBaseCharacter>(NewMesh->GetOwner());
 		if(IsValid(PROwner) == true)
@@ -51,7 +51,7 @@ void APRAfterImage::CreatePoseableMeshMaterials(USkeletalMeshComponent* NewMesh)
 			
 		UMaterialInstanceDynamic* AfterImageDynamicMaterial = UMaterialInstanceDynamic::Create(AfterImageMaterial, this);
 		DynamicMaterials.Add(AfterImageDynamicMaterial);
-		PoseableMesh->SetMaterial(Index, AfterImageDynamicMaterial);
+		PoseableMesh->SetMaterial(MaterialIndex, AfterImageDynamicMaterial);
 	}
 }
 
@@ -92,6 +92,8 @@ void APRAfterImage::Activate_Implementation()
 		APRBaseCharacter* PROwner = Cast<APRBaseCharacter>(GetObjectOwner());
 		if(PROwner != nullptr)
 		{
+			InitializeSpawnLocation();
+			
 			USkeletalMeshComponent* NewMesh = PROwner->GetMesh();
 			
 			FadeOutCountDown = FadeOutTime;

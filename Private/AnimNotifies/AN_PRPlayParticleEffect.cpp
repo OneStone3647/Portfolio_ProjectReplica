@@ -28,7 +28,7 @@ UParticleSystemComponent* UAN_PRPlayParticleEffect::SpawnParticleSystem(USkeleta
 			if(EffectSystem != nullptr)
 			{
 				// EffectPool에 Spawn할 Effect가 존재하는지 탐색합니다.
-				if(EffectSystem->IsValidEffectPool(PSTemplate) == true)
+				if(EffectSystem->IsCreateParticleEffectPool(PSTemplate) == true)
 				{
 					UPRParticleEffect* SpawnPRParticleEffect = nullptr;
 

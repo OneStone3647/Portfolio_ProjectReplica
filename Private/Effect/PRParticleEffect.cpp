@@ -13,18 +13,19 @@ void UPRParticleEffect::Initialize()
 {
 	Super::Initialize();
 
+	OnParticleEffectDeactivate.Clear();
 	Deactivate();
 }
 
-void UPRParticleEffect::UpdateEffect(float DeltaTime)
-{
-	Super::UpdateEffect(DeltaTime);
-
-	if(ParticleEffect != nullptr && IsValid(GetEffectOwner()) == true)
-	{
-		ParticleEffect->CustomTimeDilation = GetEffectOwner()->CustomTimeDilation;
-	}
-}
+// void UPRParticleEffect::UpdateEffect(float DeltaTime)
+// {
+// 	Super::UpdateEffect(DeltaTime);
+//
+// 	if(ParticleEffect != nullptr && IsValid(GetEffectOwner()) == true)
+// 	{
+// 		ParticleEffect->CustomTimeDilation = GetEffectOwner()->CustomTimeDilation;
+// 	}
+// }
 
 bool UPRParticleEffect::IsActivate() const
 {
@@ -56,6 +57,11 @@ void UPRParticleEffect::Deactivate()
 		ParticleEffect->SetHiddenInGame(true);
 		ParticleEffect->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		ParticleEffect->Deactivate();
+	}
+
+	if(OnParticleEffectDeactivate.IsBound())
+	{
+		OnParticleEffectDeactivate.Broadcast(this);
 	}
 }
 
@@ -126,6 +132,44 @@ bool UPRParticleEffect::IsLooping() const
 	}
 
 	return false;
+}
+
+void UPRParticleEffect::TimeStopActive()
+{
+	Super::TimeStopActive();
+
+	if(ParticleEffect != nullptr)
+	{
+		ParticleEffect->CustomTimeDilation = 0.0f;
+	}
+}
+
+void UPRParticleEffect::TimeStopDeactive()
+{
+	Super::TimeStopDeactive();
+
+	if(ParticleEffect != nullptr)
+	{
+		ParticleEffect->CustomTimeDilation = 1.0f;
+	}
+}
+
+UParticleSystem* UPRParticleEffect::GetParticleEffectAsset() const
+{
+	if(ParticleEffect != nullptr)
+	{
+		return Cast<UParticleSystem>(ParticleEffect->GetFXSystemAsset());
+	}
+
+	return nullptr;
+}
+
+void UPRParticleEffect::SetParticleEffectCustomTimeDilation(float NewCustomTimeDilation)
+{
+	if(ParticleEffect != nullptr)
+	{
+		ParticleEffect->CustomTimeDilation = NewCustomTimeDilation;
+	}
 }
 
 UParticleSystemComponent* UPRParticleEffect::GetParticleEffect() const

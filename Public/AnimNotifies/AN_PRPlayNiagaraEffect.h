@@ -7,7 +7,7 @@
 #include "AN_PRPlayNiagaraEffect.generated.h"
 
 /**
- * 캐릭터의 EffectSystem에서 Effect를 가져와 Spawn하는 AnimNotify 클래스입니다.
+ * 캐릭터의 EffectSystem에서 NiagaraEffect를 가져와 Spawn하는 AnimNotify 클래스입니다.
  */
 UCLASS()
 class PROJECTREPLICA_API UAN_PRPlayNiagaraEffect : public UAnimNotify_PlayNiagaraEffect

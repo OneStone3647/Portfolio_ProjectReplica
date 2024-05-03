@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "ProjectReplica.h"
 #include "Animation/AnimNotifies/AnimNotify_PlayParticleEffect.h"
 #include "AN_PRPlayParticleEffect.generated.h"
 
 /**
- * 캐릭터의 EffectSystem에서 Effect를 가져와 Spawn하는 AnimNotify 클래스입니다.
+ * 캐릭터의 EffectSystem에서 ParticleEffect를 가져와 Spawn하는 AnimNotify 클래스입니다.
  */
 UCLASS()
 class PROJECTREPLICA_API UAN_PRPlayParticleEffect : public UAnimNotify_PlayParticleEffect

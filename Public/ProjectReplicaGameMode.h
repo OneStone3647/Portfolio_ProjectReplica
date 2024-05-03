@@ -4,10 +4,11 @@
 
 #include "ProjectReplica.h"
 #include "GameFramework/GameModeBase.h"
+#include "Objects/PRPooledObject.h"
 #include "ProjectReplicaGameMode.generated.h"
 
-class UPRAISpawnSystemComponent;
-class UPRTimeStopSystemComponent;
+class UPRObjectPoolSystemComponent;
+class APRDamageAmount;
 
 UCLASS(minimalapi)
 class AProjectReplicaGameMode : public AGameModeBase
@@ -20,52 +21,37 @@ public:
 protected:
 	virtual void PostInitializeComponents() override;
 
-#pragma region AISpawnSystem
+#pragma region ObjectPoolSystem
+	
+private:
+	/** 오브젝트 풀을 관리하는 ActorComponent 클래스입니다. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ObjectPoolSystem", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UPRObjectPoolSystemComponent> ObjectPoolSystem;
+
+public:
+	/** ObjectPoolSystem을 반환하는 함수입니다. */
+	FORCEINLINE class UPRObjectPoolSystemComponent* GetObjectPoolSystem() const { return ObjectPoolSystem; }
+#pragma endregion
+
+#pragma region DamageAmount
 public:
 	/**
-	 * 인자에 해당하는 AI 캐릭터 클래스를 AIPool에서 찾아 존재할 경우 활성화하고 인자로 받은 좌표와 회전값을 적용하는 함수입니다.
+	 * 초기화한 DamageAmount를 활성화하고, 반환하는 함수입니다.
 	 * 
-	 * @param AICharacterClass AIPool에서 찾을 AI 캐릭터의 클래스 
-	 * @param SpawnLocation 적용할 AI 캐릭터의 좌표
-	 * @param SpawnRotation 적용할 AI 캐릭터의 회전값
-	 * @return AIPool에서 찾은 AI 캐릭터
+	 * @param SpawnLocation Spawn할 위치
+	 * @param DamageAmount 대미지의 양
+	 * @param bIsCritical 일반 대미지인지, 치명타 대미지인지 판별하는 인자
+	 * @param Element 대미지의 속성
+	 * @return 활성화한 DamageAmount
 	 */
-	UFUNCTION(BlueprintCallable, Category = "AISpawnSystem")
-	APRAICharacter* ActivateAI(TSubclassOf<APRAICharacter> AICharacterClass, FVector SpawnLocation = FVector::ZeroVector, FRotator SpawnRotation = FRotator::ZeroRotator);
-	
-private:
-	/** AI를 월드에 Spawn하고 관리하는 ActorComponent 클래스입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AISpawnSystem", meta = (AllowPrivateAccess = "true"))
-	UPRAISpawnSystemComponent* AISpawnSystem;
+	UFUNCTION(BlueprintCallable, Category = "DamageAmount")
+	class APRDamageAmount* ActivateDamageAmount(FVector SpawnLocation, float DamageAmount, bool bIsCritical, EPRElement Element);
 
-public:
-	/** AISpawnSystem을 반환하는 함수입니다. */
-	class UPRAISpawnSystemComponent* GetAISpawnSystem() const { return AISpawnSystem; }
+private:
+	/** DamageAmount의 클래스 레퍼런스입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "DamageAmount", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<APRPooledObject> DamageAmountClass;
 #pragma endregion 
-
-#pragma region TimeStopSystem
-public:
-	/** TimeStop이 실행 중인지 나타내는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
-	bool IsActivateTimeStop() const;
-
-	/** TimeStop을 활성화하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
-	void ActivateTimeStop(float TimeStopDuration);
-
-	/** TimeStop을 비활성화하는 함수입니다. */
-	UFUNCTION(BlueprintCallable, Category = "TimeStopSystem")
-	void DeactivateTimeStop();
-	
-private:
-	/** 플레이어 캐릭터를 제외한 모든 오브젝트들이 시간이 멈춘것처럼 일시정지 시키는 ActorComponent입니다. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeStopSystem", meta = (AllowPrivateAccess = "true"))
-	UPRTimeStopSystemComponent* TimeStopSystem;
-
-public:
-	/** TimeStopSystem을 반환하는 함수입니다. */
-	class UPRTimeStopSystemComponent* GetTimeStopSystem() const { return TimeStopSystem; }
-#pragma endregion
 };
 
 

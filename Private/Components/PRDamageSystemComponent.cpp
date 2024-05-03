@@ -2,51 +2,58 @@
 
 
 #include "Components/PRDamageSystemComponent.h"
-#include "Characters/PRBaseCharacter.h"
+#include "ProjectReplicaGameInstance.h"
+#include "ProjectReplicaGameMode.h"
 #include "Components/PRStatSystemComponent.h"
+#include "Components/PRStateSystemComponent.h"
+#include "Components/PRObjectPoolSystemComponent.h"
+#include "Characters/PRBaseCharacter.h"
+#include "Kismet/GameplayStatics.h"
+#include "Objects/PRDamageAmount.h"
 
 UPRDamageSystemComponent::UPRDamageSystemComponent()
 {
+	// InitializeComponent 함수를 실행하기 위해서 true로 설정합니다.
+	bWantsInitializeComponent = true;
+
 	StatSystem = nullptr;
-	// Health = 100.0f;
-	// MaxHealth = 100.0f;
-	// bIsInvincible = false;
-	// bIsDead = false;
-	bIsInterruptible = true;
-	bIsBlocking = false;
+	StateSystem = nullptr;
 }
 
-void UPRDamageSystemComponent::OnRegister()
+void UPRDamageSystemComponent::InitializeComponent()
 {
-	Super::OnRegister();
+	Super::InitializeComponent();
 
-	if(GetPROwner() != nullptr)
+	if(GetPROwner())
 	{
+		// StatSystem을 바인딩합니다.
 		BindStatSystem(GetPROwner()->GetStatSystem());
+
+		// StateSystem을 바인딩합니다.
+		BindStateSystem(GetPROwner()->GetStateSystem());
 	}
 }
 
-void UPRDamageSystemComponent::BindStatSystem(UPRStatSystemComponent* NewStatSystem)
+void UPRDamageSystemComponent::BindStatSystem(TObjectPtr<UPRStatSystemComponent> NewStatSystem)
 {
 	StatSystem = NewStatSystem;
 }
 
+void UPRDamageSystemComponent::BindStateSystem(TObjectPtr<UPRStateSystemComponent> NewStateSystem)
+{
+	StateSystem = NewStateSystem;
+}
+
 float UPRDamageSystemComponent::Heal(float Amount)
 {
-	if(GetPROwner() != nullptr
+	if(GetPROwner()
 		&& !GetPROwner()->IsDead()
-		&& StatSystem != nullptr)
+		&& StatSystem.IsValid())
 	{
-		// Health = FMath::Clamp(Health + Amount, 0.0f, MaxHealth);
-		//
-		// return Health;
-		
 		FPRCharacterStat CharacterStat = StatSystem->GetCharacterStat();
-		CharacterStat.HealthPoint = FMath::Clamp(CharacterStat.HealthPoint + Amount, 0.0f, CharacterStat.MaxHealthPoint);
-
-		StatSystem->SetCharacterStat(CharacterStat);
-
-		return CharacterStat.HealthPoint;
+		StatSystem->SetHealth(FMath::Clamp(CharacterStat.Health + Amount, 0.0f, CharacterStat.MaxHealth));
+		
+		return CharacterStat.Health;
 	}
 
 	return 0.0f;
@@ -54,100 +61,81 @@ float UPRDamageSystemComponent::Heal(float Amount)
 
 bool UPRDamageSystemComponent::TakeDamage(FPRDamageInfo DamageInfo)
 {
-	if(GetPROwner() == nullptr
+	if(!GetPROwner()
 		|| GetPROwner()->IsDead()
-		|| StatSystem == nullptr)
+		|| !StatSystem.IsValid()
+		|| !StateSystem.IsValid())
 	{
 		return false;
 	}
-	
-	EPRCanBeDamaged CanBeDamagedResult = CanBeDamaged(DamageInfo.bShouldDamageInvincible, DamageInfo.bCanBeBlocked);
+
 	FPRCharacterStat CharacterStat = StatSystem->GetCharacterStat();
-	
+
+	// 대미지의 처리를 구분하여 실행합니다.
+	EPRCanBeDamaged CanBeDamagedResult = CanBeDamaged(DamageInfo.bShouldDamageInvincible, DamageInfo.bCanBeBlocked);
 	switch(CanBeDamagedResult)
 	{
 	case EPRCanBeDamaged::CanBeDamaged_BlockDamage:
 		if(OnBlockedDelegate.IsBound())
 		{
+			// 방어 상태이면서 방어할 수 있는 대미지이므로 패링합니다.
 			OnBlockedDelegate.Broadcast(DamageInfo.bCanBeParried);
 		}
-		
-		return false;
-	case EPRCanBeDamaged::CanBeDamaged_DoDamage:
-		// Health -= DamageInfo.Amount;
-		// if(Health <= 0.0f)
-		// {
-		// 	bIsDead = true;
-		//
-		// 	if(OnDeathDelegate.IsBound())
-		// 	{
-		// 		OnDeathDelegate.Broadcast();
-		// 	}
-		// }
-		
-		StatSystem->SetHealthPoint(CharacterStat.HealthPoint -= DamageInfo.Amount);
-		if(CharacterStat.HealthPoint <= 0.0f)
-		{
-			// bIsDead = true;
-
-			if(OnDeathDelegate.IsBound())
-			{
-				OnDeathDelegate.Broadcast();
-			}
-		}
-		else
-		{
-			if(bIsInterruptible || DamageInfo.bShouldForceInterrupt)
-			{
-				if(OnDamageResponseDelegate.IsBound())
-				{
-					OnDamageResponseDelegate.Broadcast(DamageInfo.DamageResponse);
-				}
-
-				return true;
-			}
-		}
-		
-		return true;
-	case EPRCanBeDamaged::CanBeDamaged_NoDamage:
 		break;
+		
+	case EPRCanBeDamaged::CanBeDamaged_DoDamage:
+		{
+			if(GetPRGameMode() != nullptr)
+			{
+				GetPRGameMode()->ActivateDamageAmount(DamageInfo.ImpactLocation, DamageInfo.Amount, DamageInfo.bIsCritical, DamageInfo.DamageElement);
+			}
+		
+			StatSystem->SetHealth(CharacterStat.Health -= DamageInfo.Amount);
+			if(CharacterStat.Health <= 0.0f)
+			{
+				// 캐릭터의 체력이 0이하(사망)일 경우 OnDeathDelegate를 실행합니다.
+				if(OnDeathDelegate.IsBound())
+				{
+					OnDeathDelegate.Broadcast();
+				}
+			}
+			else
+			{
+				// 동작을 강제로 중단할 수 있는 상태이거나 동작을 강제로 중단해야하는 대미지일 경우
+				// OnDamageResponseDelegate를 실행합니다.
+				if(StateSystem->IsInterruptible() || DamageInfo.bShouldForceInterrupt)
+				{
+					if(OnDamageResponseDelegate.IsBound())
+					{
+						OnDamageResponseDelegate.Broadcast(DamageInfo.DamageResponse);
+						return true;
+					}
+				}
+			}
+		}
+		break;
+		
+	case EPRCanBeDamaged::CanBeDamaged_NoDamage:
 	default:
-		return false;
+		break;
 	}
 	
 	return false;
 }
 
-// bool UPRDamageSystemComponent::IsDead() const
-// {
-// 	return bIsDead;
-// }
-
 EPRCanBeDamaged UPRDamageSystemComponent::CanBeDamaged(const bool& bShouldDamageInvincible, const bool& bCanBeBlocked)
 {
-	if(GetPROwner() != nullptr
+	if(GetPROwner()
 		&& !GetPROwner()->IsDead()
 		&& (!GetPROwner()->IsInvincible() || bShouldDamageInvincible))
 	{
-		if(bIsBlocking && bCanBeBlocked)
+		if(GetPROwner()->IsBlocking() && bCanBeBlocked)
 		{
 			return EPRCanBeDamaged::CanBeDamaged_BlockDamage;
 		}
-		else
-		{
-			return EPRCanBeDamaged::CanBeDamaged_DoDamage;
-		}
+		
+		return EPRCanBeDamaged::CanBeDamaged_DoDamage;
 	}
 
 	return EPRCanBeDamaged::CanBeDamaged_NoDamage;
 }
-
-// float UPRDamageSystemComponent::GetHealth() const
-// {
-// 	return Health;
-// }
-//
-// float UPRDamageSystemComponent::GetMaxHealth() const
-// {
-// 	return MaxHealth;
-// }

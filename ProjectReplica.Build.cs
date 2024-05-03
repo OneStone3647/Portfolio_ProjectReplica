@@ -8,22 +8,22 @@ public class ProjectReplica : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[] 
+		PublicDependencyModuleNames.AddRange(new string[]
 		{
-			"Core", 
-			"CoreUObject", 
-			"Engine", 
-			"InputCore", 
-			"HeadMountedDisplay", 
-			"UMG", 
-			"NavigationSystem", 
-			"AIModule", 
-			"GameplayTasks", 
-			"Niagara", 
-			"CinematicCamera",
-			"TemplateSequence",
-			"MovieScene",
-			"ApexDestruction"
+			"Core",
+			"CoreUObject",
+			"Engine",
+			"InputCore",
+			"EnhancedInput",
+			"UMG",
+			"Niagara",
+			"NavigationSystem",
+			"AIModule",
+			"GameplayTasks",
+			"AnimationLocomotionLibraryRuntime",
+			"AnimGraphRuntime",
+			"MotionWarping",
+			"NiagaraAnimNotifies"
 		});
 	}
 }

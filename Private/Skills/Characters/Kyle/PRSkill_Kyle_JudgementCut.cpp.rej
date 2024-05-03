@@ -1,9 +1,0 @@
-diff a/Source/ProjectReplica/Private/Skills/Characters/Kyle/PRSkill_Kyle_JudgementCut.cpp b/Source/ProjectReplica/Private/Skills/Characters/Kyle/PRSkill_Kyle_JudgementCut.cpp	(rejected hunks)
-@@ -68,7 +68,6 @@
- 
- bool UPRSkill_Kyle_JudgementCut::IsCanActivateSkill_Implementation() const
- {
--			&& IsCanActivatableType()
- 	return Super::IsCanActivateSkill_Implementation()
- 			&& ActivateableCount > 0
- 			&& GetSkillOwner()->GetStateSystem()->IsActionable(EPRAction::Action_Attack) == true;

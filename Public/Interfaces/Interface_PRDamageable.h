@@ -7,14 +7,14 @@
 #include "Interface_PRDamageable.generated.h"
 
 // This class does not need to be modified.
-UINTERFACE(MinimalAPI)
+UINTERFACE(MinimalAPI, BlueprintType)
 class UInterface_PRDamageable : public UInterface
 {
 	GENERATED_BODY()
 };
 
 /**
- * 대미지에 관련된 기능을 실행하는 Interface 클래스입니다.
+ * 대미지에 관련된 Interface 클래스입니다.
  */
 class PROJECTREPLICA_API IInterface_PRDamageable
 {
@@ -30,7 +30,7 @@ public:
 	float GetMaxHealth();
 
 	/**
-	 * 입력받은 인자만큼 체력을 회복하는 함수입니다.
+	 * 입력받은 인자만큼 현재 체력을 회복하는 함수입니다.
 	 *
 	 * @param Amount 회복량
 	 * @return 회복한 후의 체력
@@ -45,5 +45,5 @@ public:
 	 * @return 대미지 적용 여부
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damageable")
-	bool TakeDamage(FPRDamageInfo DamageInfo);	
+	bool TakeDamage(FPRDamageInfo DamageInfo);
 };

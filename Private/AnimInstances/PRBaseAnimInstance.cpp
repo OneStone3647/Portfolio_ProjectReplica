@@ -3,388 +3,316 @@
 
 #include "AnimInstances/PRBaseAnimInstance.h"
 #include "Characters/PRBaseCharacter.h"
-#include "Components/CapsuleComponent.h"
-#include "Components/PRMovementSystemComponent.h"
-#include "Components/PRStateSystemComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/KismetMathLibrary.h"
-#include "Kismet/KismetSystemLibrary.h"
+#include "AnimCharacterMovementLibrary.h"
+#include "KismetAnimationLibrary.h"
+#include "Dataflow/DataflowSelection.h"
 
 UPRBaseAnimInstance::UPRBaseAnimInstance()
 {
-	// CharacterReference
 	PROwner = nullptr;
+	CharacterMovement = nullptr;
+	GaitSettings.Empty();
 
-	// CharacterState
-	bIsDead = false;
-
-	// MovementInfo
-	MovementState = EPRMovementState::MovementState_None;
-	PreviousMovementState = EPRMovementState::MovementState_None;
-	bJumped = false;
-	FootDown = EPRFoot::Foot_Left;
-	Gait = EPRGait::Gait_Running;
-	PreviousGait = EPRGait::Gait_None;
-	MaxWalkSpeed = 0.0f;
+	DeltaTime = 0.0f;
+	LocomotionState = EPRLocomotionState::LocomotionState_Idle;
+	AllowGait = EPRGait::Gait_Run;
+	CurrentGait = EPRGait::Gait_Idle;
 	Velocity = FVector::ZeroVector;
-	SpeedWhenStop = 0.0f;
-	SpeedWhenJump = 0.0f;
-	bIsMoving = false;
-	CurrentAcceleration = FVector::ZeroVector;
+	GroundSpeed = 0.0f;
+	WalkSpeed = 0.0f;
+	RunSpeed = 0.0f;
+	SprintSpeed = 0.0f;
+	Acceleration = FVector::ZeroVector;
+	MinAccelerationToRunGait = 0.0f;
+	bShouldMove = false;
+	Direction = 0.0f;
+	bIsFalling = false;
+	InputVector = FVector::ZeroVector;
+	bAttemptTurn = false;
+	PlayRate = 0.0f;
+	DistanceToMatch = 0.0f;
 
-	// FootIK
-	bActiveFootIK = false;
-	bActiveFootIKDebug = false;
-	FootIKTraceDistance = 55.0f;
-	FootIKTraceRadius = 10.0f;
-	LeftFootBoneName = FName("foot_l");
-	RightFootBoneName = FName("foot_r");
-	AdjustFootOffset = 2.5f;
-	FootInterpSpeed = 22.0f;
-	HipsOffsetInterpSpeed = 17.0f;
-	LeftFootEffectorLocationOffset = 0.0f;
-	RightFootEffectorLocationOffset = 0.0f;
-	LeftFootEffectorLocation = FVector::ZeroVector;
-	RightFootEffectorLocation = FVector::ZeroVector;
-	HipsOffset = 0.0f;
-	OwnerInitializeCapsuleHalfHeight = 0.0f;
-	LeftFootRotation = FRotator::ZeroRotator;
-	RightFootRotation = FRotator::ZeroRotator;
-	JointTargetLeft = FVector(50.0f, 217.0f, -38.0f);
-	JointTargetRight = FVector(50.f, 217.0f, 38.0f);
+	bTrackIdleStateEnterExecuted = false;
+	bTrackIdleStateExitExecuted = false;
+	bTrackRunStateEnterExecuted = false;
+	bTrackRunStateExitExecuted = false;
+	bTrackSprintStateEnterExecuted = false;
+	bTrackSprintStateExitExecuted = false;
+	bTrackWalkStateEnterExecuted = false;
+	bTrackWalkStateExitExecuted = false;
 }
 
 void UPRBaseAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
 
-	// CharacterReference
-	InitializePROwner();
+	APRBaseCharacter* NewPROwner = Cast<APRBaseCharacter>(TryGetPawnOwner());
+	if(NewPROwner)
+	{
+		PROwner = NewPROwner;
+		CharacterMovement = NewPROwner->GetCharacterMovement();
+		if(NewPROwner->GetMovementSystem())
+		{
+			GaitSettings = NewPROwner->GetMovementSystem()->GetAllGaitSettings();
+			WalkSpeed = NewPROwner->GetMovementSystem()->GetGaitSettings(EPRGait::Gait_Walk).MovementSpeed;
+			RunSpeed = NewPROwner->GetMovementSystem()->GetGaitSettings(EPRGait::Gait_Run).MovementSpeed;
+			SprintSpeed = NewPROwner->GetMovementSystem()->GetGaitSettings(EPRGait::Gait_Sprint).MovementSpeed;
+			MinAccelerationToRunGait = NewPROwner->GetMovementSystem()->GetMinAccelerationToRunGait();
+		}
+	}
 }
 
-void UPRBaseAnimInstance::NativeBeginPlay()
-{
-	Super::NativeBeginPlay();
-
-	// FootIK
-	OwnerInitializeCapsuleHalfHeight = PROwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-}
+// void UPRBaseAnimInstance::NativePostEvaluateAnimation()
+// {
+// 	Super::NativePostEvaluateAnimation();
+//
+// 	
+// }
 
 void UPRBaseAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
-
-	if(PROwner != nullptr)
-	{
-		// CharacterState
-		UpdateCharacterState();
-
-		// MovementInfo
-		UpdateMovementInfo();
 	
-		// FootIK
-		UpdateFootIK(DeltaSeconds);
-		UpdateFootIKDebug();
-	}
-}
-
-#pragma region CharacterReference
-void UPRBaseAnimInstance::InitializePROwner()
-{
-	APRBaseCharacter* NewPROwner = Cast<APRBaseCharacter>(TryGetPawnOwner());
-	if(IsValid(NewPROwner) == true)
-	{
-		PROwner = NewPROwner;
-	}
-}
-#pragma endregion
-
-#pragma region CharacterState
-void UPRBaseAnimInstance::UpdateCharacterState()
-{
-	bIsDead = PROwner->GetStateSystem()->IsDead();
-}
-#pragma endregion 
-
-#pragma region MovementInfo
-void UPRBaseAnimInstance::UpdateMovementInfo()
-{
-	if(IsValid(PROwner) == true)
-	{
-		MovementState = PROwner->GetMovementSystem()->GetMovementState();
-		PreviousMovementState = PROwner->GetMovementSystem()->GetPreviousMovementState();
-		bJumped = PROwner->IsJumped();
-		SetAllowedGait(PROwner->GetMovementSystem()->GetAllowedGait());
-		SetGait(PROwner->GetMovementSystem()->GetGait());
-		MaxWalkSpeed = PROwner->GetMovementSystem()->GetMaxWalkSpeed(PROwner->GetMovementSystem()->GetGait());
-		bIsMoving = PROwner->GetMovementSystem()->IsMoving();
-		Velocity = PROwner->GetVelocity();
-		SpeedWhenStop = PROwner->GetMovementSystem()->GetSpeedWhenStop();
-		SpeedWhenJump = PROwner->GetMovementSystem()->GetSpeedWhenJump();
-		CurrentAcceleration = PROwner->GetCharacterMovement()->GetCurrentAcceleration();
-	}
-}
-
-bool UPRBaseAnimInstance::IsEqualMovementState(EPRMovementState NewPRMovementState) const
-{
-	return MovementState == NewPRMovementState;
-}
-
-void UPRBaseAnimInstance::SetFootDown(EPRFoot NewFoot)
-{
-	FootDown = NewFoot;
-}
-
-void UPRBaseAnimInstance::SetAllowedGait(EPRGait NewAllowedGait)
-{
-	if(AllowedGait == NewAllowedGait)
-	{
-		return;
-	}
+	DeltaTime = DeltaSeconds;
 	
-	PreviousAllowedGait = AllowedGait;
-	AllowedGait = NewAllowedGait;
-}
-
-void UPRBaseAnimInstance::SetGait(EPRGait NewGait)
-{
-	if(Gait == NewGait)
-	{
-		return;
-	}
+	// LocomotionState 최신화
+	UpdateLocomotionState();
 	
-	PreviousGait = Gait;
-	Gait = NewGait;
-}
-#pragma endregion 
-
-#pragma region FootIK
-void UPRBaseAnimInstance::ActivateFootIK()
-{
-	bActiveFootIK = true;
+	TrackIdleState();
+	TrackWalkState();
+	TrackRunState();
+	TrackSprintState();
 }
 
-void UPRBaseAnimInstance::DeactivateFootIK()
+void UPRBaseAnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeconds)
 {
-	bActiveFootIK = false;
-}
+	Super::NativeThreadSafeUpdateAnimation(DeltaSeconds);
 
-void UPRBaseAnimInstance::InitializeFootIK()
-{
-	if(IsValid(PROwner) == true && PROwner->GetMesh()->SkeletalMesh != nullptr)
-	{		
-		// FootIK의 값을 초기화합니다.
-		UpdateFootIKOffset(0.0f, LeftFootEffectorLocationOffset, GetWorld()->GetDeltaSeconds(), FootInterpSpeed);
-		UpdateFootIKOffset(0.0f, RightFootEffectorLocationOffset, GetWorld()->GetDeltaSeconds(), FootInterpSpeed);
+	UpdateProperties(DeltaSeconds);
 
-		UpdateFootIKOffset(0.0f, HipsOffset, GetWorld()->GetDeltaSeconds(), HipsOffsetInterpSpeed);
-
-		UpdateFootIKRotation(FRotator::ZeroRotator, LeftFootRotation, GetWorld()->GetDeltaSeconds(), FootInterpSpeed);
-		UpdateFootIKRotation(FRotator::ZeroRotator, RightFootRotation, GetWorld()->GetDeltaSeconds(), FootInterpSpeed);
-
-		UpdateCapsuleHalfHeight(0.0f, GetWorld()->GetDeltaSeconds(), true);
-
-		LeftFootEffectorLocation = FVector::ZeroVector;
-		RightFootEffectorLocation = FVector::ZeroVector;
+	if(LocomotionState == EPRLocomotionState::LocomotionState_Idle)
+	{
+		// Idle 상태로 돌아갈 때 StopDistance를 계산합니다.
+		DistanceToMatch = GetPredictedStopDistance();
+	}
+	else
+	{
+		DistanceToMatch = 0.0f;
 	}
 }
 
-void UPRBaseAnimInstance::UpdateFootIKDebug()
+void UPRBaseAnimInstance::SetRootLock(bool bRootLock)
 {
-	// FootIK의 값의 디버그를 출력합니다.
-	if(bActiveFootIKDebug == true)
+	if(bRootLock)
 	{
-		UKismetSystemLibrary::PrintString(GetWorld(), "LeftFoot Effector Location(Z): " + FString::SanitizeFloat(LeftFootEffectorLocationOffset), true, false, FLinearColor::Red, 0.0f);
-		UKismetSystemLibrary::PrintString(GetWorld(), "RightFoot Effector Location(Z): " + FString::SanitizeFloat(RightFootEffectorLocationOffset), true, false, FLinearColor::Red, 0.0f);
-		UKismetSystemLibrary::PrintString(GetWorld(), "HipsOffset(Z): " + FString::SanitizeFloat(HipsOffset), true, false, FLinearColor::Red, 0.0f);
-		UKismetSystemLibrary::PrintString(GetWorld(), "LeftFoot Rotation: " + LeftFootRotation.ToString(), true, false, FLinearColor::Red, 0.0f);
-		UKismetSystemLibrary::PrintString(GetWorld(), "RightFoot Rotation: " + RightFootRotation.ToString(), true, false, FLinearColor::Red, 0.0f);
-		UKismetSystemLibrary::PrintString(GetWorld(), "==FootIK Debug==", true, false, FLinearColor::Green, 0.0f);
+		EnableRootLock();
 	}
-
-	// 캐릭터의 CapsuleCollision Debug
-	if(PROwner != nullptr)
+	else
 	{
-		PROwner->GetCapsuleComponent()->SetHiddenInGame(!bActiveFootIKDebug);
+		DisableRootLock();
 	}
 }
 
-void UPRBaseAnimInstance::UpdateFootIK(float DeltaTime)
+void UPRBaseAnimInstance::EnableRootLock()
 {
-	if(PROwner == nullptr)
+	SetRootMotionMode(ERootMotionMode::RootMotionFromEverything);
+}
+
+void UPRBaseAnimInstance::DisableRootLock()
+{
+	SetRootMotionMode(ERootMotionMode::RootMotionFromMontagesOnly);
+}
+
+void UPRBaseAnimInstance::UpdateProperties(float DeltaSeconds)
+{
+	if(GetCharacterMovement())
 	{
-		PR_LOG_WARNING("PROwner is NULL");
-		return;
+		AllowGait = GetPROwner()->GetMovementSystem()->GetAllowGait();
+		CurrentGait = GetPROwner()->GetMovementSystem()->GetCurrentGait();
+		Velocity = GetCharacterMovement()->Velocity;
+		GroundSpeed = Velocity.Size2D();
+		Acceleration = GetCharacterMovement()->GetCurrentAcceleration();
+		bShouldMove = GroundSpeed > 3.0f && Acceleration != FVector::ZeroVector;
+		Direction = UKismetAnimationLibrary::CalculateDirection(Velocity, TryGetPawnOwner()->GetActorRotation());
+		InputVector = GetCharacterMovement()->GetLastInputVector();
+
+		bIsFalling = GetCharacterMovement()->IsFalling();
+
+		// QuickTurn 잠시 보류
+		// bAttemptTurn = UKismetMathLibrary::Dot_VectorVector(UKismetMathLibrary::Normal(Velocity), UKismetMathLibrary::Normal(Acceleration)) < 0.0f;
 	}
+}
 
-	// 공중에 존재하지 않고 전력질주 상태가 아닐 때 FootIk를 실행합니다.
-	if(bActiveFootIK == true && IsEqualMovementState(EPRMovementState::MovementState_InAir) == false && Gait != EPRGait::Gait_Sprinting)
+void UPRBaseAnimInstance::UpdateLocomotionState()
+{
+	if(GetCharacterMovement())
 	{
-		FHitResult LeftFootTraceHitResult;
-		FHitResult RightFootTraceHitResult;
-
-		// Update FootIKTrace
-		UpdateFootIKTrace(LeftFootTraceHitResult, LeftFootEffectorLocationOffset, LeftFootBoneName, bActiveFootIKDebug, FootIKTraceDistance, FootIKTraceRadius);
-		UpdateFootIKTrace(RightFootTraceHitResult, RightFootEffectorLocationOffset, RightFootBoneName, bActiveFootIKDebug, FootIKTraceDistance, FootIKTraceRadius);
-
-		// Update FootRotation
-		if(bIsMoving)
+		// 정규화된 속도 및 가속도를 계산
+		const FVector NormalizeVelocity = UKismetMathLibrary::Normal(Velocity);
+		const FVector NormalizeAcceleration = UKismetMathLibrary::Normal(Acceleration);
+	
+		// 정규화된 속도와 가속도의 내적 계산
+		const float Dot = UKismetMathLibrary::Dot_VectorVector(NormalizeVelocity, NormalizeAcceleration);
+		
+		if(Dot < 0.0f)
 		{
-			UpdateFootIKRotation(FRotator::ZeroRotator, LeftFootRotation, DeltaTime, FootInterpSpeed);
-			UpdateFootIKRotation(FRotator::ZeroRotator, RightFootRotation, DeltaTime, FootInterpSpeed);
+			// 속도와 가속도가 반대 방향이면 Idle 상태
+			LocomotionState = EPRLocomotionState::LocomotionState_Idle;
 		}
 		else
 		{
-			UpdateFootIKRotation(CalculateNormalToRotator(LeftFootTraceHitResult.ImpactNormal), LeftFootRotation, DeltaTime, FootInterpSpeed);
-			UpdateFootIKRotation(CalculateNormalToRotator(RightFootTraceHitResult.ImpactNormal), RightFootRotation, DeltaTime, FootInterpSpeed);
+			// 캐릭터의 현재 걷는 상태에 기반하여 Locomotion 상태를 결정합니다.
+			switch(CurrentGait)
+			{
+			case EPRGait::Gait_Walk:
+				LocomotionState = EPRLocomotionState::LocomotionState_Walk;
+				break;
+			case EPRGait::Gait_Run:
+				LocomotionState = EPRLocomotionState::LocomotionState_Run;
+				break;
+			case EPRGait::Gait_Sprint:
+				LocomotionState = EPRLocomotionState::LocomotionState_Sprint;
+				break;
+			case EPRGait::Gait_Idle:
+			default:
+				LocomotionState = EPRLocomotionState::LocomotionState_Idle;
+				break;
+			}
 		}
-		
-		// Update HipsOffset(Z)
-		float NewHipsOffset = UKismetMathLibrary::Min(LeftFootEffectorLocationOffset, RightFootEffectorLocationOffset);
-		if(NewHipsOffset > 0)
+	}
+}
+
+EPRTrackState UPRBaseAnimInstance::TrackLocomotionState(EPRLocomotionState NewLocomotionState, bool& EnterExecuted, bool& ExitExecuted)
+{
+	if(LocomotionState == NewLocomotionState)
+	{
+		if(!EnterExecuted)
 		{
-			NewHipsOffset = 0.0f;
+			EnterExecuted = true;
+			ExitExecuted = false;
+
+			// Gait에 들어갑니다.
+			return EPRTrackState::TrackState_OnEnter;
 		}
-		UpdateFootIKOffset(NewHipsOffset, HipsOffset, DeltaTime, HipsOffsetInterpSpeed);
 
-		// Update CapsuleHalfHeight;
-		UpdateCapsuleHalfHeight(HipsOffset, DeltaTime, false);
-
-		// Update FootOffset
-		UpdateFootIKOffset(LeftFootEffectorLocationOffset - HipsOffset, LeftFootEffectorLocation.X, DeltaTime, FootInterpSpeed);
-		UpdateFootIKOffset(-1 * (RightFootEffectorLocationOffset - HipsOffset), RightFootEffectorLocation.X, DeltaTime, FootInterpSpeed);
+		// Gait 지속 상태입니다.
+		return EPRTrackState::TrackState_WhileTrue;
 	}
 	else
 	{
-		InitializeFootIK();
+		if(!ExitExecuted)
+		{
+			ExitExecuted = true;
+			EnterExecuted = false;
+
+			// Gait를 탈출합니다.
+			return EPRTrackState::TrackState_OnExit;
+		}
+
+		// Gait 지속 상태가 아닙니다.
+		return EPRTrackState::TrackState_WhileFalse;
 	}
 }
 
-bool UPRBaseAnimInstance::UpdateFootIKTrace(FHitResult& HitResult, float& FootIKOffset, FName SocketName, bool bDebugFlag, float TraceDistance, float TraceRadius)
+void UPRBaseAnimInstance::TrackIdleState()
 {
-	if(PROwner == nullptr)
-	{
-		PR_LOG_WARNING("PROwner is NULL");
-		return false;
-	}
-
-	const FVector FootLocation = PROwner->GetMesh()->GetSocketLocation(SocketName);
-	const FVector TraceStart = FVector(FootLocation.X, FootLocation.Y, PROwner->GetActorLocation().Z);
-	const FVector TraceEnd = FVector(FootLocation.X, FootLocation.Y, (PROwner->GetActorLocation().Z - OwnerInitializeCapsuleHalfHeight) - TraceDistance);
-
-	TArray<AActor*> ActorsToIgnore;
-	ActorsToIgnore.Add(PROwner);
-
-	EDrawDebugTrace::Type DebugType = EDrawDebugTrace::None;
-	if(bDebugFlag)
-	{
-		DebugType = EDrawDebugTrace::ForOneFrame;
-	}
-
-	bool bFootIKTraceHit = UKismetSystemLibrary::SphereTraceSingle(GetWorld(), TraceStart, TraceEnd, TraceRadius,
-																	UEngineTypes::ConvertToTraceType(ECC_Visibility),
-																	false, ActorsToIgnore, DebugType, HitResult, true);
-
-	if(HitResult.IsValidBlockingHit() == true)
-	{
-		float ImpactLenght = (HitResult.ImpactPoint - HitResult.TraceEnd).Size();
-		FootIKOffset = AdjustFootOffset + (ImpactLenght - TraceDistance);
-	}
-	else
-	{
-		FootIKOffset = 0.0f;
-	}
-
-	return bFootIKTraceHit;
 }
 
-void UPRBaseAnimInstance::UpdateFootIKOffset(float TargetOffset, float& CurrentOffset, float DeltaTime, float InterpSpeed)
+void UPRBaseAnimInstance::TrackRunState()
 {
-	float InterpOffset = UKismetMathLibrary::FInterpTo(CurrentOffset, TargetOffset, DeltaTime, InterpSpeed);
-	CurrentOffset = InterpOffset;
+	const EPRTrackState TrackRun = TrackLocomotionState(EPRLocomotionState::LocomotionState_Run, bTrackRunStateEnterExecuted, bTrackRunStateExitExecuted);
+	switch(TrackRun)
+	{
+	case EPRTrackState::TrackState_OnEnter:
+		break;
+	case EPRTrackState::TrackState_OnExit:
+		break;
+	case EPRTrackState::TrackState_WhileTrue:
+		UpdateLocomotionPlayRate();
+		break;
+	case EPRTrackState::TrackState_WhileFalse:
+		break;
+	default:
+		break;
+	}
 }
 
-void UPRBaseAnimInstance::UpdateFootIKRotation(FRotator TargetRotation, FRotator& CurrentRotation, float DeltaTime, float InterpSpeed)
+void UPRBaseAnimInstance::TrackSprintState()
 {
-	FRotator InterpRotation = UKismetMathLibrary::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, InterpSpeed);
-	CurrentRotation = InterpRotation;
+	const EPRTrackState TrackSprint = TrackLocomotionState(EPRLocomotionState::LocomotionState_Sprint, bTrackSprintStateEnterExecuted, bTrackSprintStateExitExecuted);
+	switch(TrackSprint)
+	{
+	case EPRTrackState::TrackState_OnEnter:
+		break;
+	case EPRTrackState::TrackState_OnExit:
+		// InitializeSprintState();
+		break;
+	case EPRTrackState::TrackState_WhileTrue:
+		UpdateLocomotionPlayRate();
+		break;
+	case EPRTrackState::TrackState_WhileFalse:
+		break;
+	default:
+		break;
+	}
 }
 
-void UPRBaseAnimInstance::UpdateCapsuleHalfHeight(float CurrentHipsOffset, float DeltaTime, bool bInitializeFlag)
+void UPRBaseAnimInstance::TrackWalkState()
 {
-	if(PROwner == nullptr)
+	const EPRTrackState TrackWalk = TrackLocomotionState(EPRLocomotionState::LocomotionState_Walk, bTrackWalkStateEnterExecuted, bTrackWalkStateExitExecuted);
+	switch(TrackWalk)
 	{
-		PR_LOG_WARNING("PROwner is NULL");
-		return;
+	case EPRTrackState::TrackState_OnEnter:
+		break;
+	case EPRTrackState::TrackState_OnExit:
+		break;
+	case EPRTrackState::TrackState_WhileTrue:
+		UpdateLocomotionPlayRate();
+		break;
+	case EPRTrackState::TrackState_WhileFalse:
+		break;
+	default:
+		break;
 	}
-
-	UCapsuleComponent* CapsuleComponent = PROwner->GetCapsuleComponent();
-	if(CapsuleComponent == nullptr)
-	{
-		PR_LOG_WARNING("CapsuleComponent is NULL");
-		return;
-	}
-
-	float NewCapsuleHalfHeight = 0.0f;
-	if(bInitializeFlag)
-	{
-		NewCapsuleHalfHeight = OwnerInitializeCapsuleHalfHeight;
-	}
-	else
-	{
-		float HalfAbsSize = UKismetMathLibrary::Abs(CurrentHipsOffset) * 0.5f;
-		NewCapsuleHalfHeight = OwnerInitializeCapsuleHalfHeight - HalfAbsSize;
-	}
-
-	float ScaledCapsuleHalfHeight = CapsuleComponent->GetScaledCapsuleHalfHeight();
-	float InterpCapsuleHalfHeight = UKismetMathLibrary::FInterpTo(ScaledCapsuleHalfHeight, NewCapsuleHalfHeight, DeltaTime, HipsOffsetInterpSpeed);
-
-	CapsuleComponent->SetCapsuleHalfHeight(InterpCapsuleHalfHeight);
 }
 
-FRotator UPRBaseAnimInstance::CalculateNormalToRotator(FVector NormalVector)
+void UPRBaseAnimInstance::UpdateLocomotionPlayRate()
 {
-	float FirstAtan2 = UKismetMathLibrary::DegAtan2(NormalVector.Y, NormalVector.Z);
-	float SecondAtan2 = UKismetMathLibrary::DegAtan2(NormalVector.X, NormalVector.Z);
-	SecondAtan2 *= -1.0f;
+	float DivideSpeed = UKismetMathLibrary::SafeDivide(GroundSpeed, GetCurveValue(TEXT("MovingSpeed")));
+	PlayRate = UKismetMathLibrary::FClamp(DivideSpeed, 0.5f, 1.75f);	
+}
+
+float UPRBaseAnimInstance::GetPredictedStopDistance() const
+{
+	float NewDistanceToMatch = 0.0f;
 	
-	FRotator ResultRotation = FRotator(SecondAtan2, 0.0f, FirstAtan2);
+	if(GetCharacterMovement())
+	{
+		FVector MovementStopLocation = UAnimCharacterMovementLibrary::PredictGroundMovementStopLocation(GetCharacterMovement()->Velocity,
+																										GetCharacterMovement()->bUseSeparateBrakingFriction,
+																										GetCharacterMovement()->BrakingFriction,
+																										GetCharacterMovement()->GroundFriction,
+																										GetCharacterMovement()->BrakingFrictionFactor,
+																										GetCharacterMovement()->BrakingDecelerationWalking);
 
-	return ResultRotation;
+		NewDistanceToMatch = MovementStopLocation.Length();
+	}
+	
+	return NewDistanceToMatch;
 }
-#pragma endregion 
 
-#pragma region AnimMontage
-// void UPRBaseAnimInstance::PlayAnAnimMontage(UAnimMontage* AnimMontage)
-// {
-// 	if(AnimMontage != nullptr)
-// 	{
-// 		Montage_Play(AnimMontage);
-//
-// 		FOnMontageEnded BlendOutDelegate;
-// 		BlendOutDelegate.BindUObject(this, &UPRBaseAnimInstance::FunctionToExecuteOnAnimationBlendOut);
-// 		Montage_SetBlendingOutDelegate(BlendOutDelegate, AnimMontage);
-//
-// 		FOnMontageEnded CompleteDelegate;
-// 		CompleteDelegate.BindUObject(this, &UPRBaseAnimInstance::FunctionToExecuteOnAnimationEnd);
-// 		Montage_SetEndDelegate(CompleteDelegate, AnimMontage);
-// 	}
-// }
-//
-// void UPRBaseAnimInstance::FunctionToExecuteOnAnimationBlendOut(UAnimMontage* AnimMontage, bool bInterrupted)
-// {
-// 	if(bInterrupted)
-// 	{
-// 		PR_LOG_SCREEN("Interrupted");
-// 	}
-// 	else
-// 	{
-// 		PR_LOG_SCREEN("Blend Out");
-// 	}
-// }
-//
-// void UPRBaseAnimInstance::FunctionToExecuteOnAnimationEnd(UAnimMontage* AnimMontage, bool bInterrupted)
-// {
-// 	PR_LOG_SCREEN("Completed");
-// }
-#pragma endregion 
+APRBaseCharacter* UPRBaseAnimInstance::GetPROwner() const
+{
+	return PROwner;
+}
+
+UCharacterMovementComponent* UPRBaseAnimInstance::GetCharacterMovement() const
+{
+	if(GetPROwner())
+	{
+		return GetPROwner()->GetCharacterMovement();
+	}
+
+	return nullptr;
+}

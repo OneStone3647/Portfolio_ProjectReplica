@@ -14,12 +14,18 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/PRMovementSystemComponent.h"
 #include "MotionWarpingComponent.h"
+#include "Components/PRWeaponSystemComponent.h"
 #include "Controllers/PRPlayerController.h"
 
 APRPlayerCharacter::APRPlayerCharacter()
 {
 	// CharacterMovement
 	GetCharacterMovement()->bOrientRotationToMovement = true;		// 캐릭터가 이동하는 방향으로 회전합니다.
+	// GetCharacterMovement()->bUseControllerDesiredRotation = false;
+
+	// LockOn일 때
+	// GetCharacterMovement()->bOrientRotationToMovement = false;
+	// GetCharacterMovement()->bUseControllerDesiredRotation = true;
 
 	// Input
 	DefaultMappingContext = nullptr;
@@ -151,7 +157,7 @@ void APRPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 			EnhancedInputComponent->BindAction(InputActions->InputSprint, ETriggerEvent::Triggered, this, &APRBaseCharacter::ToggleSprint);
 		
 			// 공격
-			EnhancedInputComponent->BindAction(InputActions->InputNormalAttack, ETriggerEvent::Triggered, this, &APRBaseCharacter::DoDamage);
+			EnhancedInputComponent->BindAction(InputActions->InputNormalAttack, ETriggerEvent::Triggered, this, &APRPlayerCharacter::Attack);
 		}
 	}
 }
@@ -196,6 +202,12 @@ void APRPlayerCharacter::Move(const FInputActionValue& Value)
 		// AddMovementInput(ForwardDirection, MovementVector.Y);
 		// AddMovementInput(RightDirection, MovementVector.X);
 
+		// 캐릭터가 이동할 때 무기를 발도 상태일 경우 납도합니다.
+		if(!MovementVector.IsZero() && GetWeaponSystem()->IsDrawWeapon())
+		{
+			GetWeaponSystem()->SheatheWeapon(true, false);
+		}
+
 		AddPlayerMovementInput(MovementVector);
 	}
 }
@@ -213,6 +225,12 @@ void APRPlayerCharacter::Look(const FInputActionValue& Value)
 
 void APRPlayerCharacter::Jump()
 {
+	// 무기를 발도하고 있을 경우 납도합니다.
+	if(GetWeaponSystem()->IsDrawWeapon())
+	{
+		GetWeaponSystem()->SheatheWeapon(true, false);
+	}
+	
 	if(GetCharacterMovement()->IsFalling() == false)
 	{
 		Super::Jump();
@@ -721,5 +739,12 @@ void APRPlayerCharacter::OnVaultAnimMontageEnded(UAnimMontage* NewVaultAnimMonta
 void APRPlayerCharacter::OnVaultCollisionBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	ExecuteVault();
+}
+
+void APRPlayerCharacter::Attack_Implementation()
+{
+	Super::Attack_Implementation();
+
+	DoDamage();
 }
 #pragma endregion 

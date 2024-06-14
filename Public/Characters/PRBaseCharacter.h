@@ -5,7 +5,7 @@
 #include "ProjectReplica.h"
 #include "Common/PRCommonStruct.h"
 #include "GameFramework/Character.h"
-#include "Interfaces/Interface_PRDamageable.h"
+#include "Interfaces/PRDamageableInterface.h"
 #include "PRBaseCharacter.generated.h"
 
 /** 캐릭터의 성별을 나타내는 열거형입니다. */
@@ -26,6 +26,8 @@ class UPRMovementSystemComponent;
 class UPRWeaponSystemComponent;
 class UMotionWarpingComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAttackEnd);
+
 // 임시
 class UNiagaraSystem;
 class UNiagaraComponent;
@@ -34,7 +36,7 @@ class UNiagaraComponent;
  * 캐릭터 클래스입니다.
  */
 UCLASS()
-class PROJECTREPLICA_API APRBaseCharacter : public ACharacter, public IInterface_PRDamageable
+class PROJECTREPLICA_API APRBaseCharacter : public ACharacter, public IPRDamageableInterface
 {
 	GENERATED_BODY()
 
@@ -106,7 +108,7 @@ private:
 
 	// 임시
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "임시", meta = (AllowPrivateAccess = "true"))
-	EPRElement DamageElement;
+	EPRElementType DamageElementType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "임시", meta = (AllowPrivateAccess = "true"))
 	float DamageAmount;
@@ -244,5 +246,18 @@ public:
 
 	/** FootstepsSound를 반환하는 함수입니다. */
 	TObjectPtr<USoundBase> GetFootstepsSound() const;
+#pragma endregion
+
+#pragma region Attack
+protected:
+	/** 공격을 실행하는 함수입니다. */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Attack")
+	void Attack();
+	virtual void Attack_Implementation();
+	
+public:
+	/** 공격이 끝났을 때 호출하는 델리게이트입니다. */
+	UPROPERTY(BlueprintAssignable, BlueprintCallable, Category = "Attack")
+	FOnAttackEnd OnAttackEndDelegate;
 #pragma endregion 
 };

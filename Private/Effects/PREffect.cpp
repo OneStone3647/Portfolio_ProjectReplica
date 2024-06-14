@@ -11,7 +11,7 @@ APREffect::APREffect()
 	bActivate = false;
 	EffectLifespan = 0.0f;
 	EffectOwner = nullptr;
-	PoolIndex = -1;
+	PoolIndex = INDEX_NONE;
 }
 
 void APREffect::BeginPlay()
@@ -20,17 +20,39 @@ void APREffect::BeginPlay()
 	
 }
 
-void APREffect::SpawnEffectAtLocation(FVector Location, FRotator Rotation, FVector Scale, bool bAutoActivate)
+#pragma region PooledableInterface
+bool APREffect::IsActivate_Implementation() const
+{
+	return bActivate;
+}
+
+void APREffect::Activate_Implementation()
+{
+	ActivateEffect();
+}
+
+void APREffect::Deactivate_Implementation()
+{
+	DeactivateEffect();
+}
+
+int32 APREffect::GetPoolIndex_Implementation() const
+{
+	return PoolIndex;
+}
+#pragma endregion 
+
+void APREffect::SpawnEffectAtLocation(FVector Location, FRotator Rotation, FVector Scale, bool bAutoActivate, bool bReset)
 {
 	SetActorLocationAndRotation(Location, Rotation);
 	SetActorScale3D(Scale);
 	if(bAutoActivate)
 	{
-		Activate();
+		ActivateEffect(bReset);
 	}
 }
 
-void APREffect::SpawnEffectAttached(USceneComponent* Parent, FName AttachSocketName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bAutoActivate)
+void APREffect::SpawnEffectAttached(USceneComponent* Parent, FName AttachSocketName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bAutoActivate, bool bReset)
 {
 	const FAttachmentTransformRules AttachmentTransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepRelative, false);
 	AttachToComponent(Parent, AttachmentTransformRules, AttachSocketName);
@@ -46,28 +68,20 @@ void APREffect::SpawnEffectAttached(USceneComponent* Parent, FName AttachSocketN
 	SetActorScale3D(Scale);
 	if(bAutoActivate)
 	{
-		Activate();
+		ActivateEffect(bReset);
 	}
 }
 
-bool APREffect::IsActivate() const
+void APREffect::ActivateEffect(bool bReset)
 {
-	return bActivate;
-}
-
-void APREffect::Activate()
-{
-	PR_LOG_SCREEN("Activate");
 	bActivate = true;
 	SetActorHiddenInGame(!bActivate);
 
 	// 이펙트의 수명을 설정합니다. 이펙트의 수명이 끝나면 이펙트를 비활성화합니다.
 	SetEffectLifespan(EffectLifespan);
-
-	UKismetSystemLibrary::DrawDebugLine(GetWorld(), GetEffectOwner()->GetActorLocation(), GetActorLocation(), FLinearColor::Blue, 10, 0);
 }
 
-void APREffect::Deactivate()
+void APREffect::DeactivateEffect()
 {
 	bActivate = false;
 	SetActorHiddenInGame(!bActivate);
@@ -109,7 +123,7 @@ void APREffect::SetEffectLifespan(float NewLifespan)
 		if(NewLifespan > 0.0f)
 		{
 			// 수명이 0보다 클 경우, 즉 새로운 수명이 설정된 경우 타이머를 설정합니다.
-			GetWorldTimerManager().SetTimer(EffectLifespanTimerHandle, this, &APREffect::Deactivate, NewLifespan);
+			GetWorldTimerManager().SetTimer(EffectLifespanTimerHandle, this, &APREffect::OnDeactivate, NewLifespan);
 		}
 		else
 		{
@@ -119,13 +133,13 @@ void APREffect::SetEffectLifespan(float NewLifespan)
 	}
 }
 
+void APREffect::OnDeactivate()
+{
+	IPRPoolableInterface::Execute_Deactivate(this);
+}
+
 float APREffect::GetEffectLifespan() const
 {
 	return EffectLifespan;
-}
-
-int32 APREffect::GetPoolIndex() const
-{
-	return PoolIndex;
 }
 

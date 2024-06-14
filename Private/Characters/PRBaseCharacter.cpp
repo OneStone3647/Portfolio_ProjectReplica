@@ -11,11 +11,11 @@
 #include "Components/PRMovementSystemComponent.h"
 #include "Components/PRWeaponSystemComponent.h"
 #include "MotionWarpingComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 // 임시
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
 APRBaseCharacter::APRBaseCharacter()
 {
@@ -35,10 +35,6 @@ APRBaseCharacter::APRBaseCharacter()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
 	GetCharacterMovement()->GravityScale = 1.75f;
 	GetCharacterMovement()->JumpZVelocity = 700.0f;
-	
-	// LockOn일 때
-	// GetCharacterMovement()->bUseControllerDesiredRotation = true;
-	// GetCharacterMovement()->bOrientRotationToMovement = false;
 
 	// Pawn
 	// 컨트롤러가 회전할 때 캐릭터가 같이 회전하지 않도록 설정합니다.
@@ -98,7 +94,7 @@ void APRBaseCharacter::PostInitializeComponents()
 	GetObjectPoolSystem()->InitializeObjectPool();
 
 	// EffectSystem
-	GetEffectSystem()->InitializeEffectPool();
+	GetEffectSystem()->InitializeObjectPool();
 
 	// MovementSystem
 	GetMovementSystem()->SetAllowGait(EPRGait::Gait_Run);
@@ -107,6 +103,9 @@ void APRBaseCharacter::PostInitializeComponents()
 void APRBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// WeaponSystem
+	GetWeaponSystem()->InitializeWeaponSystem();
 }
 
 void APRBaseCharacter::Tick(float DeltaTime)
@@ -212,13 +211,13 @@ void APRBaseCharacter::DoDamage()
 		for(FHitResult HitResult : HitResults)
 		{
 			if(IsValid(HitResult.GetActor())
-				&& HitResult.GetActor()->GetClass()->ImplementsInterface(UInterface_PRDamageable::StaticClass())
+				&& HitResult.GetActor()->GetClass()->ImplementsInterface(UPRDamageableInterface::StaticClass())
 				&& UniqueActors.Find(HitResult.GetActor()) == nullptr)
 			{
 				UniqueActors.Emplace(HitResult.GetActor());
 				FPRDamageInfo DamageInfo;
 				DamageInfo.DamageType = EPRDamageType::DamageType_Melee;
-				DamageInfo.DamageElement = DamageElement;
+				DamageInfo.DamageElementType = DamageElementType;
 				DamageInfo.DamageResponse = EPRDamageResponse::DamageResponse_HitReaction;
 				DamageInfo.ImpactLocation = HitResult.ImpactPoint;
 
@@ -238,7 +237,7 @@ void APRBaseCharacter::DoDamage()
 					DamageInfo.Amount = DamageAmount;
 				}
 				
-				bool bWasDamaged = IInterface_PRDamageable::Execute_TakeDamage(HitResult.GetActor(), DamageInfo);
+				bool bWasDamaged = IPRDamageableInterface::Execute_TakeDamage(HitResult.GetActor(), DamageInfo);
 				if(bWasDamaged)
 				{
 					// GetEffectSystem()->SpawnNiagaraEffectAtLocation(HitEffect,HitResult.Location);
@@ -337,6 +336,12 @@ EPRGender APRBaseCharacter::GetGender() const
 TObjectPtr<USoundBase> APRBaseCharacter::GetFootstepsSound() const
 {
 	return FootstepsSound;
+}
+#pragma endregion 
+
+#pragma region Attack
+void APRBaseCharacter::Attack_Implementation()
+{
 }
 #pragma endregion 
 

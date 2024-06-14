@@ -69,7 +69,7 @@ bool APRDamageableObject_HasHealthPoint::TakeDamage_Implementation(FPRDamageInfo
 	AProjectReplicaGameMode* PRGameMode = Cast<AProjectReplicaGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 	if(IsValid(PRGameMode))
 	{
-		PRGameMode->ActivateDamageAmount(DamageInfo.ImpactLocation, DamageInfo.Amount, DamageInfo.bIsCritical, DamageInfo.DamageElement);
+		PRGameMode->ActivateDamageAmount(DamageInfo.ImpactLocation, DamageInfo.Amount, DamageInfo.bIsCritical, DamageInfo.DamageElementType);
 		Health -= DamageInfo.Amount;
 		if(Health <= 0.0f)
 		{
@@ -89,8 +89,8 @@ void APRDamageableObject_HasHealthPoint::CreateHealthBarWidget()
 		UPRBaseHealthBarWidget* HealthBarWidgetInstance = CreateWidget<UPRBaseHealthBarWidget>(GetWorld(), HealthBarWidgetClass);
 		if(IsValid(HealthBarWidgetInstance))
 		{
-			// HealthBar의 DamageableActor를 초기화합니다.
-			HealthBarWidgetInstance->InitializeDamageableActor(this);
+			// HealthBar의 DamageableTarget를 초기화합니다.
+			HealthBarWidgetInstance->InitializeDamageableTarget(this);
 			
 			HealthBarWidget->SetWidget(HealthBarWidgetInstance);
 		}

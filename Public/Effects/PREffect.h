@@ -26,7 +26,7 @@ protected:
 	virtual void BeginPlay() override;
 
 #pragma region PooledableInterface
-public:
+protected:
 	/** 오브젝트가 활성화 되었는지 확인하는 함수입니다. */
 	virtual bool IsActivate_Implementation() const override;
 	
@@ -38,6 +38,16 @@ public:
 	
 	/** 오브젝트의 PoolIndex를 반환하는 함수입니다. */
 	virtual int32 GetPoolIndex_Implementation() const override;
+
+	/** 수명을 반환하는 함수입니다. */
+	virtual float GetLifespan_Implementation() const override;
+
+	/**
+	 * 수명을 설정하는 함수입니다.
+	 * 
+	 * @param NewLifespan 설정할 수명입니다.
+	 */	
+	virtual void SetLifespan_Implementation(float NewLifespan) override;
 #pragma endregion
 
 public:

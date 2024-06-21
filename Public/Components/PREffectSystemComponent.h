@@ -523,7 +523,7 @@ public:
 	 * @return 지정한 Component에 부착하여 Spawn한 NiagaraEffect입니다.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "PREffectSystem|NiagaraEffect")
-	APRNiagaraEffect* SpawnNiagaraEffectAttached(UNiagaraSystem* SpawnEffect, USceneComponent* Parent, FName AttachSocketName, FVector Location, FRotator Rotation, FVector Scale, bool bEffectAutoActivate = true, bool bReset = false);
+	APRNiagaraEffect* SpawnNiagaraEffectAttached(UNiagaraSystem* SpawnEffect, USceneComponent* Parent, FName AttachSocketName, FVector Location, FRotator Rotation, FVector Scale = FVector(1.0f), bool bEffectAutoActivate = true, bool bReset = false);
 
 	/**
 	 * 주어진 NiagaraSystem에 해당하는 활성화할 수 있는 NiagaraEffect를 반환하는 함수입니다.
@@ -708,8 +708,6 @@ private:
 	FPRDynamicDestroyNiagaraEffectList DynamicDestroyNiagaraList;
 #pragma endregion
 
-
-
 #pragma region ParticleSystem
 public:
 	/** 기존의 ParticlePool을 제거하고, 새로 ParticlePool을 생성하여 초기화하는 함수입니다. */
@@ -748,7 +746,7 @@ public:
 	 * @return 지정한 Component에 부착하여 Spawn한 ParticleEffect입니다.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "PREffectSystem|ParticleEffect")
-	APRParticleEffect* SpawnParticleEffectAttached(UParticleSystem* SpawnEffect, USceneComponent* Parent, FName AttachSocketName, FVector Location, FRotator Rotation, FVector Scale, bool bEffectAutoActivate = true, bool bReset = false);
+	APRParticleEffect* SpawnParticleEffectAttached(UParticleSystem* SpawnEffect, USceneComponent* Parent, FName AttachSocketName, FVector Location, FRotator Rotation, FVector Scale = FVector(1.0f), bool bEffectAutoActivate = true, bool bReset = false);
 
 	/**
 	 * 주어진 ParticleSystem에 해당하는 활성화할 수 있는 ParticleEffect를 반환하는 함수입니다.
@@ -931,4 +929,5 @@ private:
 	/** 동적으로 제거할 ParticleSystem의 목록입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "PREffectSystem|ParticleSystem", meta = (AllowPrivateAccess = "true"))
 	FPRDynamicDestroyParticleEffectList DynamicDestroyParticleList;
+#pragma endregion 
 };
